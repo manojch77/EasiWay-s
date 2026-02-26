@@ -9,18 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #00dbde;
-            --secondary: #fc00ff;
-            --dark: #0a0a0f;
-            --light: #ffffff;
-            --warning: #ffaa00;
-            --success: #00ff88;
-            --danger: #ff3e3e;
-        }
-        
         * {
             margin: 0;
             padding: 0;
@@ -29,169 +19,123 @@
         
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: var(--dark);
-            color: var(--light);
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
             min-height: 100vh;
-            overflow: hidden;
         }
         
-        .futuristic-font {
-            font-family: 'Orbitron', sans-serif;
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .gradient-bg {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-        }
-        
-        .gradient-text {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .glow-effect {
-            box-shadow: 0 0 30px rgba(0, 219, 222, 0.5), 0 0 60px rgba(0, 219, 222, 0.3);
-        }
-        
-        .pulse-glow {
-            animation: pulseGlow 2s ease-in-out infinite;
-        }
-
-        @keyframes pulseGlow {
-            0%, 100% {
-                box-shadow: 0 0 20px rgba(0, 219, 222, 0.4), 0 0 40px rgba(0, 219, 222, 0.2);
-            }
-            50% {
-                box-shadow: 0 0 40px rgba(0, 219, 222, 0.6), 0 0 80px rgba(0, 219, 222, 0.4);
-            }
-        }
-
         .qr-refresh {
-            animation: qrRefresh 0.5s ease-out;
+            animation: qrRefresh 0.4s ease-out;
         }
-
+        
         @keyframes qrRefresh {
-            0% {
-                transform: scale(0.8);
-                opacity: 0.5;
-            }
-            50% {
-                transform: scale(1.05);
-            }
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
         }
-
-        .countdown-ring {
-            stroke-dasharray: 283;
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 1s linear;
+        
+        .blink {
+            animation: blink 1s ease-in-out infinite;
         }
-
-        .status-indicator {
-            animation: statusPulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes statusPulse {
+        
+        @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
         
     </style>
-    <script>
-        // Prevent right-click and developer tools
-        document.addEventListener('contextmenu', e => e.preventDefault());
-        document.addEventListener('keydown', e => {
-            if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && e.key === 'u')) {
-                e.preventDefault();
-            }
-        });
-    </script>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
     <!-- Bus Selection Screen -->
-    <div id="bus-select" class="text-center">
-        <h1 class="text-4xl font-bold futuristic-font gradient-text mb-2">EASIWAY</h1>
-        <p class="text-gray-400 mb-8">Bus QR Code Generator</p>
+    <div id="bus-select" class="text-center w-full max-w-lg">
+        <div class="mb-8">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center">
+                <i class="fas fa-bus text-3xl text-white"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white">EASIWAY</h1>
+            <p class="text-gray-400 mt-2">Select your bus to generate QR</p>
+        </div>
         
-        <div class="glass-effect rounded-2xl p-8 max-w-md mx-auto">
-            <h2 class="text-xl font-semibold mb-4">Select Your Bus</h2>
-            <div class="grid grid-cols-2 gap-4" id="bus-buttons">
-                <!-- Bus buttons will be generated here -->
+        <div class="glass rounded-2xl p-6">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="bus-buttons">
+                <!-- Bus buttons generated here -->
             </div>
         </div>
     </div>
 
     <!-- QR Display Screen -->
-    <div id="qr-display" class="hidden flex flex-col items-center">
-        <!-- Header -->
-        <div class="text-center mb-6">
-            <h1 class="text-3xl font-bold futuristic-font gradient-text">EASIWAY</h1>
-            <p class="text-xl text-gray-300 mt-1" id="bus-label">Bus 01</p>
+    <div id="qr-display" class="hidden w-full max-w-md">
+        <!-- Header Card -->
+        <div class="glass rounded-2xl p-4 mb-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center">
+                        <i class="fas fa-bus text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white" id="bus-label">Bus 01</h2>
+                        <p class="text-sm text-gray-400">QR Attendance</p>
+                    </div>
+                </div>
+                <button id="change-bus" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition">
+                    <i class="fas fa-exchange-alt mr-1"></i> Change
+                </button>
+            </div>
         </div>
         
-        <!-- Status Bar -->
-        <div class="flex items-center justify-center gap-6 mb-6">
-            <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-green-500 status-indicator" id="status-dot"></div>
-                <span class="text-green-400 font-semibold" id="status-text">ACTIVE</span>
+        <!-- QR Card -->
+        <div class="glass rounded-2xl p-6">
+            <!-- Status -->
+            <div class="flex items-center justify-center gap-2 mb-4">
+                <div class="w-2 h-2 rounded-full bg-green-500 blink"></div>
+                <span class="text-green-400 text-sm font-medium">Live</span>
+                <span class="text-gray-500">•</span>
+                <span class="text-gray-400 text-sm" id="current-time">00:00:00</span>
             </div>
-            <div class="flex items-center gap-2">
-                <i class="fas fa-clock text-teal-400"></i>
-                <span class="text-gray-300" id="current-time">00:00:00</span>
-            </div>
-        </div>
-        
-        <!-- QR Container -->
-        <div class="relative">
-            <!-- Countdown Ring -->
-            <svg class="absolute inset-0 w-72 h-72 transform -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#1a1a2e" stroke-width="4"/>
-                <circle id="countdown-ring" cx="50" cy="50" r="45" fill="none" stroke="url(#gradient)" stroke-width="4" 
-                    stroke-linecap="round" class="countdown-ring"/>
-                <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" style="stop-color:#00dbde"/>
-                        <stop offset="100%" style="stop-color:#fc00ff"/>
-                    </linearGradient>
-                </defs>
-            </svg>
             
-            <!-- QR Code Box -->
-            <div class="w-72 h-72 bg-white rounded-2xl flex items-center justify-center p-4 glow-effect pulse-glow qr-refresh" id="qr-container">
-                <div id="qrcode" class="qr-refresh"></div>
+            <!-- QR Code -->
+            <div class="bg-white rounded-xl p-4 mb-4">
+                <div id="qrcode" class="qr-refresh flex justify-center"></div>
+            </div>
+            
+            <!-- Token Display -->
+            <div class="bg-black/30 rounded-xl p-3 mb-4">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs text-gray-400">Token</span>
+                    <span class="text-xs text-cyan-400" id="token-live">Updating...</span>
+                </div>
+                <div class="font-mono text-sm text-white truncate" id="token-id">
+                    ---
+                </div>
+            </div>
+            
+            <!-- Timer Bar -->
+            <div class="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div id="timer-bar" class="absolute left-0 top-0 h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-1000" style="width: 100%"></div>
+            </div>
+            <p class="text-center text-sm text-gray-400 mt-2">
+                Refreshes in <span class="text-white font-semibold" id="countdown">30</span>s
+            </p>
+        </div>
+        
+        <!-- Info Card -->
+        <div class="glass rounded-2xl p-4 mt-4">
+            <div class="flex items-center justify-center gap-2 text-gray-400 text-sm">
+                <i class="fas fa-info-circle"></i>
+                <span>Show this QR to students for attendance</span>
             </div>
         </div>
-        
-        <!-- Countdown Timer -->
-        <div class="mt-6 text-center">
-            <p class="text-gray-400 text-sm">Next QR in</p>
-            <p class="text-4xl font-bold futuristic-font text-teal-400" id="countdown">30</p>
-        </div>
-        
-        <!-- Token Info -->
-        <div class="mt-4 px-6 py-3 bg-gray-800 rounded-lg">
-            <p class="text-xs text-gray-400">Token ID: <span id="token-id" class="text-teal-400 font-mono">---</span></p>
-        </div>
-        
-        <!-- Instructions -->
-        <div class="mt-6 text-center max-w-md">
-            <p class="text-gray-400 text-sm">Show this QR code to students for attendance scanning</p>
-        </div>
-        
-        <!-- Change Bus Button -->
-        <button id="change-bus" class="mt-6 px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-full text-sm font-medium transition">
-            <i class="fas fa-exchange-alt mr-2"></i>Change Bus
-        </button>
     </div>
 
-    <!-- Alert Toast -->
+    <!-- Toast -->
     <div id="toast" class="fixed bottom-6 right-6 transform translate-x-full transition-transform duration-300 z-50">
-        <div class="bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
-            <i class="fas fa-check-circle text-xl"></i>
+        <div class="bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+            <i class="fas fa-check-circle"></i>
             <span id="toast-message">Success!</span>
         </div>
     </div>
@@ -211,41 +155,32 @@
         let currentToken = null;
         let countdownInterval = null;
         let timeRemaining = 30;
-        const TOKEN_VALIDITY = 30; // seconds
+        const TOKEN_VALIDITY = 30;
         
         // Bus list
         const buses = [
-            { id: 1, number: "Bus 01" },
-            { id: 2, number: "Bus 02" },
-            { id: 3, number: "Bus 03" },
-            { id: 4, number: "Bus 04" },
-            { id: 5, number: "Bus 05" },
-            { id: 6, number: "Bus 06" },
-            { id: 7, number: "Bus 07" },
-            { id: 8, number: "Bus 08" },
-            { id: 9, number: "Bus 09" },
-            { id: 10, number: "Bus 10" },
-            { id: 11, number: "Bus 11" },
-            { id: 12, number: "Bus 12" },
-            { id: 13, number: "Bus 13" },
-            { id: 14, number: "Bus 14" }
+            { id: 1, number: "Bus 01" }, { id: 2, number: "Bus 02" }, { id: 3, number: "Bus 03" },
+            { id: 4, number: "Bus 04" }, { id: 5, number: "Bus 05" }, { id: 6, number: "Bus 06" },
+            { id: 7, number: "Bus 07" }, { id: 8, number: "Bus 08" }, { id: 9, number: "Bus 09" },
+            { id: 10, number: "Bus 10" }, { id: 11, number: "Bus 11" }, { id: 12, number: "Bus 12" },
+            { id: 13, number: "Bus 13" }, { id: 14, number: "Bus 14" }
         ];
         
-        // Initialize bus selection buttons
+        // Initialize bus selection
         function initBusSelection() {
             const container = document.getElementById('bus-buttons');
             container.innerHTML = '';
             
             buses.forEach(bus => {
                 const btn = document.createElement('button');
-                btn.className = 'p-4 bg-gray-800 hover:bg-gradient-to-r hover:from-teal-600 hover:to-purple-600 rounded-xl font-semibold transition-all transform hover:scale-105';
+                btn.className = 'p-3 bg-white/5 hover:bg-gradient-to-r hover:from-cyan-500 hover:to-purple-500 rounded-xl font-medium transition-all';
                 btn.textContent = bus.number;
                 btn.onclick = () => selectBus(bus.id, bus.number);
                 container.appendChild(btn);
             });
         }
         
-        // Select bus and start QR generation
+        // Select bus
         function selectBus(busId, busNumber) {
             currentBusId = busId;
             document.getElementById('bus-label').textContent = busNumber;
@@ -271,18 +206,16 @@
             };
         }
         
-        // Generate and display QR code
+        // Generate QR code
         function generateNewQR() {
-            // Clear previous QR
             document.getElementById('qrcode').innerHTML = '';
-            
-            // Generate new token
             currentToken = generateToken();
             
-            // Display token ID (shortened)
-            document.getElementById('token-id').textContent = currentToken.token.substring(0, 20) + '...';
+            // Update token display
+            document.getElementById('token-id').textContent = currentToken.token;
+            document.getElementById('token-live').textContent = 'Live';
             
-            // Generate QR code
+            // Generate QR
             new QRCode(document.getElementById('qrcode'), {
                 text: JSON.stringify({
                     token: currentToken.token,
@@ -290,32 +223,30 @@
                     timestamp: currentToken.timestamp,
                     expiresAt: currentToken.timestamp + (TOKEN_VALIDITY * 1000)
                 }),
-                width: 256,
-                height: 256,
+                width: 200,
+                height: 200,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.H
             });
             
-            // Add animation class
-            const container = document.getElementById('qr-container');
+            // Animation
+            const container = document.getElementById('qrcode');
             container.classList.remove('qr-refresh');
-            void container.offsetWidth; // Trigger reflow
+            void container.offsetWidth;
             container.classList.add('qr-refresh');
             
-            // Store token in Firebase
+            // Save to Firebase
             saveTokenToFirebase(currentToken);
             
-            // Reset countdown
+            // Reset
             timeRemaining = TOKEN_VALIDITY;
-            updateCountdownDisplay();
-            updateCountdownRing();
+            updateCountdown();
         }
         
         // Save token to Firebase
         function saveTokenToFirebase(tokenData) {
             const tokenRef = firebase.database().ref(`busTokens/bus${currentBusId}`);
-            
             tokenRef.set({
                 token: tokenData.token,
                 busId: tokenData.busId,
@@ -324,20 +255,17 @@
                 isActive: true,
                 generatedAt: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
-                showToast('Token generated and stored!');
-            }).catch(error => {
-                console.error('Error saving token:', error);
-            });
+                showToast('QR Generated');
+            }).catch(error => console.error('Error:', error));
         }
         
-        // Start countdown timer
+        // Start countdown
         function startCountdown() {
             if (countdownInterval) clearInterval(countdownInterval);
             
             countdownInterval = setInterval(() => {
                 timeRemaining--;
-                updateCountdownDisplay();
-                updateCountdownRing();
+                updateCountdown();
                 
                 if (timeRemaining <= 0) {
                     generateNewQR();
@@ -346,58 +274,48 @@
         }
         
         // Update countdown display
-        function updateCountdownDisplay() {
+        function updateCountdown() {
             document.getElementById('countdown').textContent = timeRemaining;
             
-            // Change color when time is low
-            const countdownEl = document.getElementById('countdown');
+            // Update timer bar
+            const percentage = (timeRemaining / TOKEN_VALIDITY) * 100;
+            document.getElementById('timer-bar').style.width = percentage + '%';
+            
+            // Color change when low
+            const timerBar = document.getElementById('timer-bar');
             if (timeRemaining <= 5) {
-                countdownEl.classList.remove('text-teal-400');
-                countdownEl.classList.add('text-red-500');
+                timerBar.classList.remove('from-cyan-500', 'to-purple-500');
+                timerBar.classList.add('from-red-500', 'to-orange-500');
             } else {
-                countdownEl.classList.add('text-teal-400');
-                countdownEl.classList.remove('text-red-500');
+                timerBar.classList.add('from-cyan-500', 'to-purple-500');
+                timerBar.classList.remove('from-red-500', 'to-orange-500');
             }
-        }
-        
-        // Update countdown ring
-        function updateCountdownRing() {
-            const ring = document.getElementById('countdown-ring');
-            const circumference = 2 * Math.PI * 45; // r=45
-            const offset = circumference * (1 - timeRemaining / TOKEN_VALIDITY);
-            ring.style.strokeDashoffset = offset;
         }
         
         // Update clock
         function updateClock() {
             const now = new Date();
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            const seconds = now.getSeconds().toString().padStart(2, '0');
-            document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('current-time').textContent = 
+                now.toLocaleTimeString('en-GB', { hour12: false });
         }
         
-        // Show toast notification
+        // Show toast
         function showToast(message) {
             const toast = document.getElementById('toast');
             document.getElementById('toast-message').textContent = message;
             toast.classList.remove('translate-x-full');
-            
-            setTimeout(() => {
-                toast.classList.add('translate-x-full');
-            }, 3000);
+            setTimeout(() => toast.classList.add('translate-x-full'), 2000);
         }
         
-        // Change bus button handler
+        // Change bus handler
         document.getElementById('change-bus').addEventListener('click', () => {
             if (countdownInterval) clearInterval(countdownInterval);
             document.getElementById('qr-display').classList.add('hidden');
             document.getElementById('bus-select').classList.remove('hidden');
             currentBusId = null;
-            currentToken = null;
         });
         
-        // Initialize on load
+        // Initialize
         initBusSelection();
     </script>
 </body>
