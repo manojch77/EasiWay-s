@@ -1196,11 +1196,8 @@
                     return;
                 }
 
-                // Check if selected type matches QR type
-                if (selectedScanType !== qrType) {
-                    showScanError(`This QR is for ${qrType.toUpperCase()}. Please select ${qrType.toUpperCase()} and scan again.`);
-                    return;
-                }
+                // QR type is auto-detected from the scanned QR code
+                // No need to check selectedScanType since we now auto-detect from QR
 
                 // Validate token with Firebase - check the correct path (entry or exit)
                 const tokenRef = firebase.database().ref(`busTokens/bus${busId}/${qrType}`);
