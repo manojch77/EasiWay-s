@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EASIWAY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-compat.js"></script>
+    <script>
+  // Block right-click context menu
+  document.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+  });
+
+  // Block common developer shortcuts
+  document.addEventListener('keydown', function (e) {
+    // Normalize key (in case of lowercase)
+    const key = e.key.toLowerCase();
+
+    if (
+      e.keyCode === 123 || // F12
+      (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(key)) || // Ctrl+Shift+I/J/C
+      (e.ctrlKey && key === 'u') // Ctrl+U
+    ) {
+      e.preventDefault();
+      alert("This action is disabled.");
+      return false;
+    }
+  });
+</script>
+    <script>
+     const firebaseConfig = {
+     apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg",
+     projectId: "easy-22b8",
+     databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com/"
+     };
+     firebase.initializeApp(firebaseConfig);
+    </script>
+    <script src="Bus.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600;700&display=swap');
+        
+        :root {
+            --primary: #00dbde;
+            --secondary: #fc00ff;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --alert: #ff3e3e;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--dark);
+            color: var(--light);
+            overflow-x: hidden;
+        }
+        
+        .futuristic-font {
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 219, 222, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(0, 219, 222, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 219, 222, 0);
+            }
+        }
+        
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 1rem;
+            z-index: 10;
+        }
+        
+        .bus-marker {
+            background-color: var(--primary);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .stop-marker {
+            background-color: var(--secondary);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 10px;
+        }
+        
+        .alert-bubble {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideIn 0.5s forwards, slideOut 0.5s forwards 4.5s;
+            transform: translateX(150%);
+        }
+        
+        @keyframes slideIn {
+            to { transform: translateX(0); }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); }
+            to { transform: translateX(150%); }
+        }
+        
+        .login-container {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        .login-card {
+            transform: rotateY(0deg);
+            transition: all 0.5s ease;
+        }
+        
+        .login-card.flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card-back {
+            transform: rotateY(180deg);
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary), 0 0 15px var(--primary);
+        }
+        
+        .bus-selector {
+            transition: all 0.3s ease;
+        }
+        
+        .bus-selector:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 219, 222, 0.3);
+        }
+        
+        .bus-selector.selected {
+            background: linear-gradient(135deg, rgba(0, 219, 222, 0.3), rgba(252, 0, 255, 0.3));
+            border: 1px solid var(--primary);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Loading Screen -->
+    <div id="loading" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
+        <div class="w-24 h-24 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 class="text-2xl font-bold text-teal-400 futuristic-font tracking-wider neon-text">EASIWAY</h2>
+        <p class="text-gray-400 mt-2">On Your Way, The EASIWAY....</p>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden">
+        <!-- Header -->
+        <header class="gradient-bg text-white py-4 px-6 shadow-lg">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-bus text-2xl"></i>
+                    <h1 class="text-2xl font-bold futuristic-font neon-text">EASIWAY</h1>
+                </div>
+                <div id="user-info" class="hidden">
+                    <div class="flex items-center space-x-3">
+                        <span id="username-display" class="font-medium"></span>
+                        <button id="logout-btn" class="bg-white text-purple-600 px-3 py-1 rounded-full text-sm font-semibold hover:bg-gray-100 transition flex items-center">
+                            <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Login Section -->
+        <section id="login-section" class="min-h-screen flex items-center justify-center p-4">
+            <div class="login-container w-full max-w-md">
+                <div class="login-card glass-effect rounded-xl p-8 shadow-2xl relative">
+                    <!-- Front Side -->
+                    <div class="front">
+                        <div class="text-center mb-8">
+                            <i class="fas fa-bus text-5xl text-teal-400 mb-4 pulse-animation"></i>
+                            <h2 class="text-3xl font-bold futuristic-font mb-2 neon-text">EASIWAY</h2>
+                            <p class="text-gray-300">Track your college bus..</p>
+                        </div>
+                                                
+                        <form id="login-form" class="space-y-6">
+                            <div>
+                                <label for="rollnumber" class="block text-sm font-medium text-gray-300 mb-1">Roll Number</label>
+                                <input type="text" id="rollnumber" name="rollnumber" required
+                                    class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-white placeholder-gray-500"
+                                    placeholder="Enter your roll number">
+                            </div>
+                                                        
+                            <div>
+                                <label for="password" class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                                <input type="password" id="password" name="password" required
+                                    class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-white placeholder-gray-500"
+                                    placeholder="Enter your password">
+                            </div>
+                                                       
+                            <button type="submit" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition flex items-center justify-center space-x-2">
+                                <i class="fas fa-sign-in-alt"></i>
+                                <span>Login</span>
+                            </button>
+                        </form>
+                                                
+                        <div class="mt-6 text-center">
+                            <a href="#" id="forgot-password" class="text-sm text-teal-400 hover:underline">Forgot password?</a>
+                        </div>
+                    </div>
+                                        
+                    <!-- Back Side (Forgot Password) -->
+                    <div class="front card-back p-8">
+                        <div class="text-center mb-6">
+                            <i class="fas fa-key text-4xl text-teal-400 mb-3"></i>
+                            <h2 class="text-2xl font-bold futuristic-font neon-text">Reset Password</h2>
+                        </div>
+                                                
+                        <form id="reset-form" class="space-y-4">
+                            <div>
+                                <label for="reset-rollnumber" class="block text-sm font-medium text-gray-300 mb-1">Roll Number</label>
+                                <input type="text" id="reset-rollnumber" name="reset-rollnumber" required
+                                    class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-white placeholder-gray-500"
+                                    placeholder="Enter your roll number">
+                            </div>
+                                                        
+                            <div>
+                                <label for="reset-email" class="block text-sm font-medium text-gray-300 mb-1">Registered Email</label>
+                                <input type="email" id="reset-email" name="reset-email" required
+                                    class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-white placeholder-gray-500"
+                                    placeholder="Enter your registered email">
+                            </div>
+                                                        
+                            <button type="submit" class="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition flex items-center justify-center space-x-2">
+                                <i class="fas fa-paper-plane"></i>
+                                <span>Send Reset Link</span>
+                            </button>
+                        </form>
+                                                
+                        <div class="mt-6 text-center">
+                            <a href="#" id="back-to-login" class="text-sm text-teal-400 hover:underline">Back to login</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="hidden container mx-auto py-8 px-4">
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Main Content -->
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold futuristic-font flex items-center">
+                            <i class="fas fa-map-marked-alt mr-3 text-teal-400"></i>
+                            Live Bus Tracking
+                        </h2>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-400">Last updated:</span>
+                            <span id="last-updated" class="text-sm font-medium">Just now</span>
+                            <button id="refresh-btn" title="refresh" class="text-teal-400 hover:text-teal-300">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                                        
+                    <!-- Map Container -->
+                    <div class="glass-effect rounded-xl p-4 mb-6">
+                        <div id="map"></div>
+                    </div>
+                                        
+                    <!-- Bus Details -->
+                    <div class="glass-effect rounded-xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-semibold flex items-center">
+                                <i class="fas fa-bus mr-2 text-teal-400"></i>
+                                Your Bus Details
+                                </h3>
+                            <span id="bus-status" class="px-3 py-1 rounded-full text-xs font-semibold bg-green-500 bg-opacity-20 text-green-400">ON TIME</span>
+                        </div>
+                                                
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-12 h-12 rounded-full gradient-bg flex items-center justify-center text-white text-xl">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">Driver</p>
+                                        <p id="driver-name" class="font-medium">Ramesh Kumar</p>
+                                    </div>
+                                </div>
+                            </div>
+                                                        
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-12 h-12 rounded-full gradient-bg flex items-center justify-center text-white text-xl">
+                                        <i class="fas fa-phone"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">Contact</p>
+                                        <p id="driver-contact" class="font-medium">9876543210</p>
+                                    </div>
+                                </div>
+                            </div>
+                                                        
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-12 h-12 rounded-full gradient-bg flex items-center justify-center text-white text-xl">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">ETA to College</p>
+                                        <p id="bus-eta" class="font-medium text-teal-400">25 minutes</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                                
+                <!-- Sidebar -->
+                <div class="lg:w-80 space-y-6">
+                    <!-- User Profile -->
+                    <div class="glass-effect rounded-xl p-6">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-16 h-16 rounded-full gradient-bg flex items-center justify-center text-white text-2xl font-bold" id="user-avatar">
+                                <!-- Initials will be inserted here -->
+                            </div>
+                            <div>
+                                <h3 id="user-fullname" class="font-bold text-lg">John Doe</h3>
+                                <p class="text-sm text-gray-400" id="user-rollnumber">EC22BC1234</p>
+                                <p class="text-sm text-teal-400" id="user-bus-number">Bus 12</p>
+                            </div>
+                        </div>
+                                                
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Boarding Point:</span>
+                                <span class="font-medium" id="user-boarding-point">Eluru Main Bus Stand</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Departure Time:</span>
+                                <span class="font-medium" id="user-departure-time">7:30 AM</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Current Stop:</span>
+                                <span class="font-medium text-teal-400" id="user-current-stop">Tadepalli</span>
+                            </div>
+                        </div>
+                    </div>
+                                        
+                    <!-- Notifications -->
+                    <div class="glass-effect rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 flex items-center">
+                            <i class="fas fa-bell mr-2 text-yellow-400"></i>
+                            Notifications
+                        </h3>
+                                                
+                        <div class="space-y-3" id="notifications">
+                            <!-- Notifications will be added here -->
+                        </div>
+                    </div>
+                                        
+                    <!-- Quick Actions -->
+                    <div class="glass-effect rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4 flex items-center">
+                            <i class="fas fa-bolt mr-2 text-purple-400"></i>
+                            Quick Actions
+                        </h3>
+                                                
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="scan-qr" class="bg-gradient-to-r from-teal-600 to-purple-600 hover:from-teal-700 hover:to-purple-700 text-white py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center space-x-2">
+                                <i class="fas fa-qrcode"></i>
+                                <span>Scan QR</span>
+                            </button>
+                            <button id="call-driver" class="bg-teal-600 hover:bg-teal-700 text-white py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center space-x-2">
+                                <i class="fas fa-phone-alt"></i>
+                                <span>Call Driver</span>
+                            </button>
+                            <button id="send-alert" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center space-x-2">
+                                <i class="fas fa-comment-alt"></i>
+                                <span>Send Alert</span>
+                            </button>
+                            <button id="share-location" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center space-x-2">
+                                <i class="fas fa-map-pin"></i>
+                                <span>Share Location</span>
+                            </button>
+                            <button id="emergency-btn" class="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 col-span-2">
+                                <i class="fas fa-exclamation"></i>
+                                <span>Emergency</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Alert Bubble -->
+    <div id="alert-bubble" class="alert-bubble hidden">
+        <div class="bg-red-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-start space-x-3 max-w-xs">
+            <i class="fas fa-exclamation-circle text-xl mt-1"></i>
+            <div>
+                <h4 class="font-bold">Bus Alert!</h4>
+                <p id="alert-message">Your bus is approaching your stop!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 rounded-2xl p-6 max-w-lg w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-qrcode text-teal-400 mr-2"></i>
+                    Scan QR Code
+                </h3>
+                <button id="close-scanner" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="reader" class="w-full rounded-lg overflow-hidden bg-black"></div>
+            <div id="scan-status" class="mt-4 text-center">
+                <p class="text-gray-400">Position the QR code within the frame</p>
+            </div>
+            <div id="scan-result" class="mt-4 hidden">
+                <div id="result-success" class="hidden bg-green-600 bg-opacity-20 border border-green-500 rounded-lg p-4">
+                    <div class="flex items-center justify-center">
+                        <i class="fas fa-check-circle text-green-400 text-4xl mr-3"></i>
+                        <div>
+                            <h4 class="text-green-400 font-bold text-lg">Attendance Marked!</h4>
+                            <p id="success-message" class="text-gray-300 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+                <div id="result-error" class="hidden bg-red-600 bg-opacity-20 border border-red-500 rounded-lg p-4">
+                    <div class="flex items-center justify-center">
+                        <i class="fas fa-times-circle text-red-400 text-4xl mr-3"></i>
+                        <div>
+                            <h4 class="text-red-400 font-bold text-lg">Scan Failed</h4>
+                            <p id="error-message" class="text-gray-300 text-sm"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulate loading
+        setTimeout(() => {
+            document.getElementById('loading').classList.add('opacity-0');
+            document.getElementById('app').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+            }, 500);
+        }, 2000);
+
+        // Sample bus data for Eluru district
+        const busData = [
+            { id: 1, number: "Bus 01", route: "Route 1 - Vij(EluruRoad) to College", driver: "Ramakrishna", contact: "9346217222", 
+               boardingPoint: "RAGHAVAYYA PARK", departureTime: "7:30 AM", currentStop: "Comming soon", 
+               nextStop: "Comming soon", stops: ["RAGHAVAYYA PARK", "POLICE CONTROL ROOM", "CHALAPALLI BANGALOW", "ALANKAR THEATRE","KOTHA VANTHENA","B.R.T.S. ROAD FOOD JUNCTION","MADHURA NAGAR BRIDGE","ELURU ROAD PADAVALA REVU","GUNADALA","GUNADALA ESI HOSPITAL","RAMAVARAPPADU RING ROAD","ANKAMMA GARI GUDI","PRASADAM PADU","ENIKEPADU","NIDAMANURI BYPASS","GUDAVALLI","KESARAPALLI","GANNAVARAM","PEDDAAVUTAPALLI","ATKURU","TELAPROLU","VEERAVALLI","HANUMAN JUNCTION","BOMMULURU","KALAPARRU","College"], 
+               currentLocation: { lat: 16.7050, lng: 81.1047 }, status: "on-time", eta: "45 mins", speed: "35 km/h", lastUpdated: "2 mins ago" },
+                       
+            { id: 2, number: "Bus 02", route: "Route 2 - Nidadavole to College", driver: "Suresh Reddy", contact: "9876543211", 
+               boardingPoint: "Nidadavole Bus Stand", departureTime: "7:15 AM", currentStop: "Chintalapudi", 
+               nextStop: "Gopalapuram", stops: ["Nidadavole", "Chintalapudi", "Gopalapuram", "College"], 
+               currentLocation: { lat: 16.8000, lng: 81.0000 }, status: "delayed", eta: "55 mins", speed: "28 km/h", lastUpdated: "5 mins ago" },
+                       
+            { id: 3, number: "Bus 03", route: "Route 3 - Tanuku to College", driver: "Mahesh Babu", contact: "9876543212", 
+               boardingPoint: "Tanuku Bus Stand", departureTime: "7:30 AM", currentStop: "Attili", 
+               nextStop: "Bhimavaram", stops: ["Tanuku", "Attili", "Bhimavaram", "College"], 
+               currentLocation: { lat: 16.7500, lng: 81.2000 }, status: "on-time", eta: "40 mins", speed: "32 km/h", lastUpdated: "1 min ago" },
+                       
+            { id: 4, number: "Bus 04", route: "Route 4 - Bhimavaram to College", driver: "Venkatesh", contact: "9876543213", 
+               boardingPoint: "Bhimavaram Bus Stand", departureTime: "7:45 AM", currentStop: "Palakol", 
+               nextStop: "Narasapuram", stops: ["Bhimavaram", "Palakol", "Narasapuram", "College"], 
+               currentLocation: { lat: 16.5500, lng: 81.2500 }, status: "early", eta: "35 mins", speed: "40 km/h", lastUpdated: "3 mins ago" },
+                       
+            { id: 5, number: "Bus 05", route: "Route 5 - Tadepalligudem to College", driver: "Chandra Sekhar", contact: "9876543214", 
+               boardingPoint: "Tadepalligudem Bus Stand", departureTime: "7:00 AM", currentStop: "Nallajerla", 
+               nextStop: "Kovvur", stops: ["Tadepalligudem", "Nallajerla", "Kovvur", "College"], 
+               currentLocation: { lat: 16.8000, lng: 81.5000 }, status: "on-time", eta: "30 mins", speed: "38 km/h", lastUpdated: "4 mins ago" },
+                       
+            { id: 6, number: "Bus 06", route: "Route 6 - Kovvur to College", driver: "Ravi Kumar", contact: "9876543215", 
+               boardingPoint: "Kovvur Bus Stand", departureTime: "7:15 AM", currentStop: "Chagallu", 
+               nextStop: "Eluru", stops: ["Kovvur", "Chagallu", "Eluru", "College"], 
+               currentLocation: { lat: 17.0000, lng: 81.3000 }, status: "delayed", eta: "50 mins", speed: "25 km/h", lastUpdated: "6 mins ago" },
+                       
+            { id: 7, number: "Bus 07", route: "Route 7 - Jangareddygudem to College", driver: "Srinivas", contact: "9876543216", 
+               boardingPoint: "Jangareddygudem Bus Stand", departureTime: "7:30 AM", currentStop: "Dwarakatirumala", 
+               nextStop: "Chintalapudi", stops: ["Jangareddygudem", "Dwarakatirumala", "Chintalapudi", "College"], 
+               currentLocation: { lat: 17.1000, lng: 81.4000 }, status: "on-time", eta: "55 mins", speed: "36 km/h", lastUpdated: "2 mins ago" },
+                       
+            { id: 8, number: "Bus 08", route: "Route 8 - Chintalapudi to College", driver: "Prakash", contact: "9876543217", 
+               boardingPoint: "Chintalapudi Bus Stand", departureTime: "7:45 AM", currentStop: "Gopalapuram", 
+               nextStop: "Eluru", stops: ["Chintalapudi", "Gopalapuram", "Eluru", "College"], 
+               currentLocation: { lat: 17.0000, lng: 81.1500 }, status: "early", eta: "25 mins", speed: "42 km/h", lastUpdated: "1 min ago" },
+                       
+            { id: 9, number: "Bus 09", route: "Route 9 - Gopalapuram to College", driver: "Rajesh", contact: "9876543218", 
+               boardingPoint: "Gopalapuram Bus Stand", departureTime: "7:00 AM", currentStop: "Eluru", 
+               nextStop: "College", stops: ["Gopalapuram", "Eluru", "College"], 
+               currentLocation: { lat: 16.8500, lng: 81.0500 }, status: "on-time", eta: "15 mins", speed: "34 km/h", lastUpdated: "3 mins ago" },
+                       
+            { id: 10, number: "Bus 10", route: "Route 10 - Pedapadu to College", driver: "Mohan", contact: "9876543219", 
+               boardingPoint: "Pedapadu Bus Stand", departureTime: "7:15 AM", currentStop: "Eluru", 
+               nextStop: "College", stops: ["Pedapadu", "Eluru", "College"], 
+               currentLocation: { lat: 16.8000, lng: 81.1000 }, status: "delayed", eta: "20 mins", speed: "30 km/h", lastUpdated: "5 mins ago" },
+                       
+            { id: 11, number: "Bus 11", route: "Route 11 - Unguturu to College", driver: "Krishna", contact: "9876543220", 
+               boardingPoint: "Unguturu Bus Stand", departureTime: "7:30 AM", currentStop: "Eluru", 
+               nextStop: "College", stops: ["Unguturu", "Eluru", "College"], 
+               currentLocation: { lat: 16.7500, lng: 81.0800 }, status: "on-time", eta: "10 mins", speed: "37 km/h", lastUpdated: "2 mins ago" },
+                       
+            { id: 12, number: "Bus 12", route: "Route 12 - Gundugolanu to College", driver: "Sudhakar", contact: "8886996806", 
+               boardingPoint: "Gundugolanu", departureTime: "7:50 AM", currentStop: "Gundugolanu", 
+               nextStop: "College", stops: ["Gundugolanu", "POTHUNURU","KOVVALI","PALAGUDEM","RAILWAY STATION","OLD BUSTAND","SEETHA RAMA RAJU STADIUM","ADIVARAPET","NUKALAMMA TEMPLE","PANNENDU PAMPULA SCHOOL","CHEPALA THUMI","FRUIT MARKET","D MART","PATHEBAD ROAD","ASHOK NAGAR BRIDGE","AMEENAPET CHURCH","FIRE STATION","NEW BUS STAND","SATRAMPADU", "College"], 
+               currentLocation: { lat: 16.7790976, lng: 81.2313659 }, status: "early", eta: "No Data", speed: "41 km/h", lastUpdated: "1 min ago" },
+                       
+            { id: 13, number: "Bus 13", route: "Route 13 - Kamavarapukota to College", driver: "Narayana", contact: "9876543222", 
+               boardingPoint: "Kamavarapukota Bus Stand", departureTime: "7:00 AM", currentStop: "Eluru", 
+               nextStop: "College", stops: ["Kamavarapukota", "Eluru", "College"], 
+               currentLocation: { lat: 16.7800, lng: 81.2000 }, status: "on-time", eta: "12 mins", speed: "33 km/h", lastUpdated: "3 mins ago" },
+                       
+            { id: 14, number: "Bus 14", route: "Route 14 - GUDIVADA to College", driver: "S UMA MAHESWARA REDDY", contact: "8074151329", 
+               boardingPoint: "GUDIVADA", departureTime: "7:50 AM", currentStop: "Comming Soon", 
+               nextStop: "Comming soon", stops: ["GUDIVADA", "JONNAPADU", "PUTTAGUNTA","ARUGOLANU","KANUMOLU","PERIKEEDU BRIDGE","PERIKEEDU","HANUMAN JUNCTION","JUNCTION RAILWAY BRIDGE","BOMMULURU","KALAPARRU","college"], 
+               currentLocation: { lat: 16.8200, lng: 81.2500 }, status: "On Time", eta: "No Data", speed: "27 km/h", lastUpdated: "6 mins ago" }
+        ];
+
+        // Route 14 sub-stops with coordinates
+        const route14SubStops = [
+            { name: "Dmart", lat: 16.42844, lng: 80.98244 },
+            { name: "yerukapadu down",lat: 16.428392696552013, lng: 80.98699681028654},
+            { name: "Bus Stand", lat: 16.43120, lng: 80.99713 },
+            { name: "Sarath Theather", lat: 16.431096922796534, lng: 80.99607401436005 },
+            { name: "Market", lat: 16.43378, lng: 80.99576 },
+            { name: "Nehru Chok", lat: 16.43459, lng: 80.99316 },
+            { name: "Sonovision", lat: 16.43624, lng: 80.99252 },
+            { name: "Flavours", lat: 16.43853106248064, lng:  80.99233800510629 }, 
+            { name: "Yumpty stomack", lat: 16.439594510505724, lng: 80.99218068405925},
+            { name: "MoreShop", lat: 16.44015, lng: 80.99206 }, 
+            { name: "Bank of Baroda", lat: 16.441367455381187, lng: 80.99206720193592 },
+            { name: "RCM School", lat: 16.44323, lng: 80.99137 },
+            { name: "Nayara petrolbunk", lat: 16.44500, lng: 80.99173 },
+            { name: "Ghantasala Complex", lat: 16.44564, lng: 80.99121 },
+            { name: "Ramesh sir stop", lat: 16.45265, lng: 80.98913 },
+            { name: "Jonnapadu", lat: 16.48044, lng: 80.97440 },
+            { name: "Dosapadu Road", lat: 16.48315, lng: 80.97166 },
+            { name: "Puttagunta", lat: 16.515664415785103, lng: 80.96003109002666 },
+            { name: "Perikeedu", lat: 16.61512, lng: 80.97157 }
+        ];  
+
+        // Sample user data (in a real app, this would come from authentication)
+        let currentUser = null;
+        let userBus = null;
+        let alertShown = false;
+        let map;
+        let busMarker;
+        let stopMarkers = [];
+
+        // Initialize map
+        function initMap() {
+            // Set initial map view to Eluru district
+            map = L.map('map', {
+                zoomControl: false, // Disable default zoom control
+                scrollWheelZoom: true, // Enable scroll wheel zoom
+                doubleClickZoom: true, // Enable double click zoom
+                touchZoom: true, // Enable touch zoom
+                boxZoom: true, // Enable box zoom
+                keyboard: true, // Enable keyboard navigation
+                dragging: true // Enable dragging
+            }).setView([16.7, 81.1], 11);
+            
+            // Add custom zoom control
+            L.control.zoom({
+                position: 'topright'
+            }).addTo(map);
+            
+            // Add tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Add bus marker for user's bus
+            updateBusMarker();
+            
+            // Add college marker
+            L.marker([16.696499056086402,81.05052784442461]).addTo(map)
+                .bindPopup("<b>College Campus</b><br>Destination point for all buses")
+                .openPopup();
+            
+            // Add Route 14 sub-stops if user is on Route 14
+            if (userBus && userBus.id === 14) {
+                addRoute14SubStops();
+            }
+        }
+
+        function addRoute14SubStops() {
+            // Clear existing stop markers
+            stopMarkers.forEach(marker => map.removeLayer(marker));
+            stopMarkers = [];
+            
+            // Add new markers for each sub-stop
+            route14SubStops.forEach((stop, index) => {
+                const marker = L.marker([stop.lat, stop.lng], {
+                    icon: L.divIcon({
+                        className: 'stop-marker',
+                        html: (index + 1).toString(),
+                        iconSize: [16, 16]
+                    })
+                }).addTo(map);
+                
+                marker.bindPopup(`<b>${stop.name}</b><br>Stop ${index + 1} on Route 14`);
+                stopMarkers.push(marker);
+            });
+        }
+        // Utility: Calculate ETA from speed and distance
+        function calculateETA(speedKmph, distanceKm) {
+         if (speedKmph <= 0) return "Calculating...";
+        const minutes = (distanceKm / speedKmph) * 60;
+            return `${Math.round(minutes)} mins`;
+        }
+
+        // Utility: Calculate real-world distance using lat/lng
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of Earth in kilometers
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+
+        const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) ** 2;
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    }
+        function updateBusMarker() {
+            if (!userBus || !userBus.currentLocation) return;
+
+            const { lat, lng } = userBus.currentLocation;
+
+            if (busMarker) {
+                // Just move existing marker
+                busMarker.setLatLng([lat, lng]);
+            } else {
+                // Create marker only once
+                busMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'bus-marker',
+                        html: userBus.id || '',
+                        iconSize: [24, 24]
+                    })
+                }).addTo(map);
+            }
+            if (userBus.currentLocation && userBus.speed) {
+                const collegeLat = 16.6965;
+                const collegeLng = 81.0505;
+                const busLat = userBus.currentLocation.lat;
+                const busLng = userBus.currentLocation.lng;
+
+             const distanceToCollege = haversineDistance(busLat, busLng, collegeLat, collegeLng);
+             const realTimeETA = calculateETA(parseFloat(userBus.speed), distanceToCollege);
+
+                const busEta = document.getElementById("bus-eta");
+                if (busEta) {
+                         busEta.textContent = realTimeETA;
+                }
+            }
+            // Popup and center
+            busMarker.bindPopup(`
+                <div class="space-y-1">
+                    <h3 class="font-bold text-lg">${userBus.number}</h3>
+                    <p class="text-sm">${userBus.route}</p>
+                    <p class="text-sm"><span class="font-medium">Driver:</span> ${userBus.driver}</p>
+                    <p class="text-sm"><span class="font-medium">Status:</span> ${userBus.status}</p>
+                    <p class="text-sm"><span class="font-medium">ETA:</span> <span id="bus-eta">Calculating...</span></p>
+                    <p class="text-sm"><span class="font-medium">Stop:</span> ${userBus.currentStop}</p>
+                </div>
+            `);
+
+            // Only set view if it's the initial load
+            if (!busMarker._map) {
+                map.setView([lat + 0.01, lng], 13);
+            }
+            
+            checkBusProximity();
+        }
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'on-time': return 'text-green-400';
+                case 'early': return 'text-blue-400';
+                case 'delayed': return 'text-yellow-400';
+                default: return 'text-gray-400';
+            }
+        }
+
+        function getStatusBg(status) {
+            switch(status) {
+                case 'on-time': return 'bg-green-500';
+                case 'early': return 'bg-blue-500';
+                case 'delayed': return 'bg-yellow-500';
+                default: return 'bg-gray-500';
+            }
+        }
+
+        function updateLastUpdatedTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            lastUpdated.textContent = `${hours}:${minutes}`;
+        }
+
+        function checkBusProximity() {
+            if (!userBus) return;
+
+            // Calculate distance to college (simplified)
+            const collegeLat = 16.696499056086402;
+            const collegeLng = 81.05052784442461;
+            const busLat = userBus.currentLocation.lat;
+            const busLng = userBus.currentLocation.lng;
+                        
+            // Simple distance calculation (for demo)
+            const distance = Math.sqrt(Math.pow(collegeLat - busLat, 2) + Math.pow(collegeLng - busLng, 2)) * 111; // approx km
+                        
+            // Show alert if bus is within 2km of college and alert hasn't been shown yet
+            if (distance < 0.02 && !alertShown) {
+                showAlert("Your bus is approaching the college!");
+                alertShown = true;
+            }
+                        
+            // Show alert if bus is at next to last stop
+            if (userBus.stops.indexOf(userBus.currentStop) === userBus.stops.length - 2 && !alertShown) {
+                showAlert(`Your bus is approaching ${userBus.stops[userBus.stops.length - 1]}!`);
+                alertShown = true;
+            }
+        }
+
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            alertBubble.classList.remove('hidden');
+                        
+            // Play notification sound
+            const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+            audio.play();
+                        
+            // Hide after 5 seconds
+            setTimeout(() => {
+                alertBubble.classList.add('hidden');
+            }, 5000);
+        }
+
+        function addNotification(message, type = 'info', time = 'just now') {
+            const notification = document.createElement('div');
+            notification.className = `p-3 bg-gray-800 rounded-lg`;
+
+            let iconClass, iconColor;
+            switch(type) {
+                case 'warning':
+                    iconClass = 'fa-exclamation-triangle';
+                    iconColor = 'text-yellow-400';
+                    break;
+                case 'alert':
+                    iconClass = 'fa-exclamation-circle';
+                    iconColor = 'text-red-400';
+                    break;
+                case 'success':
+                    iconClass = 'fa-check-circle';
+                    iconColor = 'text-green-400';
+                    break;
+                default:
+                    iconClass = 'fa-info-circle';
+                    iconColor = 'text-blue-400';
+            }
+
+            notification.innerHTML = `
+                <div class="flex items-start space-x-2">
+                    <i class="fas ${iconClass} ${iconColor} mt-1"></i>
+                    <div>
+                        <p class="text-sm">${message}</p>
+                        <p class="text-xs text-gray-500 mt-1">${time}</p>
+                    </div>
+                </div>
+            `;
+
+            notifications.insertBefore(notification, notifications.firstChild);
+
+            // Limit to 5 notifications
+            if (notifications.children.length > 5) {
+                notifications.removeChild(notifications.lastChild);
+            }
+        }
+
+        // DOM Elements
+        const loginForm = document.getElementById('login-form');
+        const resetForm = document.getElementById('reset-form');
+        const forgotPassword = document.getElementById('forgot-password');
+        const backToLogin = document.getElementById('back-to-login');
+        const loginCard = document.querySelector('.login-card');
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userInfo = document.getElementById('user-info');
+        const usernameDisplay = document.getElementById('username-display');
+        const userFullname = document.getElementById('user-fullname');
+        const userRollnumber = document.getElementById('user-rollnumber');
+        const userBusNumber = document.getElementById('user-bus-number');
+        const userBoardingPoint = document.getElementById('user-boarding-point');
+        const userDepartureTime = document.getElementById('user-departure-time');
+        const userCurrentStop = document.getElementById('user-current-stop');
+        const userAvatar = document.getElementById('user-avatar');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const lastUpdated = document.getElementById('last-updated');
+        const busStatus = document.getElementById('bus-status');
+        const driverName = document.getElementById('driver-name');
+        const driverContact = document.getElementById('driver-contact');
+        const busEta = document.getElementById('bus-eta');
+        const notifications = document.getElementById('notifications');
+        const callDriverBtn = document.getElementById('call-driver');
+        const sendAlertBtn = document.getElementById('send-alert');
+        const shareLocationBtn = document.getElementById('share-location');
+        const emergencyBtn = document.getElementById('emergency-btn');
+        const alertBubble = document.getElementById('alert-bubble');
+        const alertMessage = document.getElementById('alert-message');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const rollnumber = document.getElementById('rollnumber').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!rollnumber || !password) {
+                alert("Please enter roll number and password.");
+                return;
+            }
+
+            const studentRef = firebase.database().ref("students/" + rollnumber);
+            studentRef.once("value", snapshot => {
+                if (snapshot.exists()) {
+                    const student = snapshot.val();
+                    if (student.password === password) {
+                        // Successful login
+                        const busNumber = "Bus " + student.busId.padStart(2, '0');
+                        currentUser = {
+                            rollnumber: rollnumber,
+                            name: "Student " + rollnumber,
+                            busNumber: busNumber
+                        };
+
+                        startTracking(student.busId);
+                        console.log("Started tracking bus ID:", student.busId);
+                        
+                        userBus = busData.find(bus => bus.number === busNumber);
+                        
+                        // Continue with existing code to update UI...
+                        loginSection.classList.add('hidden');
+                        dashboardSection.classList.remove('hidden');
+                        userInfo.classList.remove('hidden');
+
+                        usernameDisplay.textContent = currentUser.name;
+                        userFullname.textContent = currentUser.name;
+                        userRollnumber.textContent = rollnumber;
+                        userBusNumber.textContent = busNumber;
+
+                        // Fill driver and route data
+                        if (userBus) {
+                            userBoardingPoint.textContent = userBus.boardingPoint;
+                            userDepartureTime.textContent = userBus.departureTime;
+                            userCurrentStop.textContent = userBus.currentStop;
+                            driverName.textContent = userBus.driver;
+                            driverContact.textContent = userBus.contact;
+                            busEta.textContent = userBus.eta;
+                            busStatus.textContent = userBus.status.toUpperCase();
+                            busStatus.className = `px-3 py-1 rounded-full text-xs font-semibold ${getStatusBg(userBus.status)} bg-opacity-20 ${getStatusColor(userBus.status)}`;
+                        }
+
+                        const initials = currentUser.name.split(' ').map(name => name[0]).join('');
+                        userAvatar.textContent = initials;
+
+                        initMap();
+                        updateLastUpdatedTime();
+                        addNotification(`You are assigned to ${userBus.route}`, 'info', 'just now');
+                        addNotification(`Bus ${userBus.number} is currently ${userBus.status}`, userBus.status === 'delayed' ? 'warning' : 'info', 'just now');
+                        
+                        // Add Route 14 sub-stops if this is Route 14
+                        if (userBus.id === 14) {
+                            addRoute14SubStops();
+                        }
+                    } else {
+                        alert("Incorrect password.");
+                    }
+                } else {
+                    alert("Roll number not found.");
+                }
+            });
+        });
+
+        resetForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+                        
+            const rollnumber = document.getElementById('reset-rollnumber').value;
+            const email = document.getElementById('reset-email').value;
+                        
+            // Simulate password reset request
+            if (rollnumber && email) {
+                const submitBtn = resetForm.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Sending...';
+                submitBtn.disabled = true;
+                                
+                setTimeout(() => {
+                    alert('Password reset link has been sent to your email if the details are correct.');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    document.getElementById('reset-rollnumber').value = '';
+                    document.getElementById('reset-email').value = '';
+                }, 1500);
+            }
+        });
+
+        forgotPassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginCard.classList.add('flipped');
+        });
+
+        backToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginCard.classList.remove('flipped');
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            // Confirm logout
+            if (confirm('Are you sure you want to logout?')) {
+                // Simulate logout
+                dashboardSection.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                currentUser = null;
+                userBus = null;
+                alertShown = false;
+                                
+                // Clear map
+                if (map) {
+                    map.remove();
+                    map = null;
+                }
+            }
+        });
+
+        refreshBtn.addEventListener('click', () => {
+            // Simulate refresh
+            refreshBtn.classList.add('animate-spin');
+                        
+            // In a real app, this would fetch new data from the server
+            setTimeout(() => {
+                if (userBus) {
+                    // Small random movement for demo
+                    const latChange = (Math.random() - 0.5) * 0.01;
+                    const lngChange = (Math.random() - 0.5) * 0.01;
+                                        
+                    userBus.currentLocation.lat += latChange;
+                    userBus.currentLocation.lng += lngChange;
+                                        
+                    // Update last updated time
+                    userBus.lastUpdated = `${Math.floor(Math.random() * 5) + 1} mins ago`;
+                                        
+                    // Update UI
+                    updateBusMarker();
+                    updateLastUpdatedTime();
+                                        
+                    // Add notification
+                    addNotification(`Bus location updated`, 'info', 'just now');
+                }
+                                
+                refreshBtn.classList.remove('animate-spin');
+            }, 1000);
+        });
+
+        callDriverBtn.addEventListener('click', () => {
+            if (userBus) {
+                addNotification(`Calling driver ${userBus.driver} at ${userBus.contact}`, 'info', 'just now');
+                // In a real app, this would initiate a phone call
+                alert(`Calling driver ${userBus.driver} at ${userBus.contact}`);
+            }
+        });
+
+        sendAlertBtn.addEventListener('click', () => {
+            if (userBus) {
+                addNotification(`Alert sent to bus ${userBus.number}`, 'info', 'just now');
+                // In a real app, this would send an alert to the bus
+                alert(`Alert sent to bus ${userBus.number}`);
+            }
+        });
+
+        shareLocationBtn.addEventListener('click', () => {
+            // In a real app, this would share the user's location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    addNotification(`Location shared: ${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'info', 'just now');
+                    alert(`Your location (${lat.toFixed(4)}, ${lng.toFixed(4)}) has been shared with the bus driver`);
+                });
+            } else {
+                addNotification(`Could not share location: Geolocation not supported`, 'warning', 'just now');
+                alert('Geolocation is not supported by your browser');
+            }
+        });
+
+        emergencyBtn.addEventListener('click', () => {
+            addNotification(`Emergency alert activated!`, 'alert', 'just now');
+            showAlert("EMERGENCY! Help has been requested!");
+                        
+            // In a real app, this would trigger emergency protocols
+            alert("Emergency alert activated! College authorities and driver have been notified.");
+        });
+
+        // QR Scanner functionality
+        const scanQrBtn = document.getElementById('scan-qr');
+        const scannerModal = document.getElementById('scanner-modal');
+        const closeScannerBtn = document.getElementById('close-scanner');
+        const scanResult = document.getElementById('scan-result');
+        const resultSuccess = document.getElementById('result-success');
+        const resultError = document.getElementById('result-error');
+        const successMessage = document.getElementById('success-message');
+        const errorMessage = document.getElementById('error-message');
+        let html5QrCode = null;
+
+        scanQrBtn.addEventListener('click', () => {
+            scannerModal.classList.remove('hidden');
+            startScanner();
+        });
+
+        closeScannerBtn.addEventListener('click', () => {
+            stopScanner();
+            scannerModal.classList.add('hidden');
+        });
+
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+            .catch(err => {
+                showScanError("Camera not accessible. Please grant camera permission.");
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode = null;
+                }).catch(err => {
+                    console.error("Failed to stop scanner:", err);
+                });
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            stopScanner();
+            processQRCode(decodedText);
+        }
+
+        function onScanFailure(error) {
+            // Scan failure is expected - just ignore
+        }
+
+        async function processQRCode(qrData) {
+            try {
+                let qrJson;
+                try {
+                    qrJson = JSON.parse(qrData);
+                } catch (e) {
+                    showScanError("Invalid QR code format");
+                    return;
+                }
+
+                const token = qrJson.token;
+                const busId = qrJson.busId;
+                const expiresAt = qrJson.expiresAt;
+
+                // Check if token is expired
+                const currentTime = Date.now();
+                if (expiresAt && currentTime > expiresAt) {
+                    showScanError("QR code has expired. Please ask for a new one.");
+                    return;
+                }
+
+                // Validate token with Firebase
+                const tokenRef = firebase.database().ref(`busTokens/bus${busId}`);
+                const snapshot = await tokenRef.once('value');
+                
+                if (!snapshot.exists()) {
+                    showScanError("Invalid QR code. Token not found.");
+                    return;
+                }
+
+                const storedToken = snapshot.val();
+                
+                if (storedToken.token !== token) {
+                    showScanError("Invalid token. Please try again.");
+                    return;
+                }
+
+                // Check if token was already used
+                if (storedToken.usedBy && storedToken.usedBy[currentUser.rollnumber]) {
+                    showScanError("This QR code has already been used by you.");
+                    return;
+                }
+
+                // Mark token as used and store attendance
+                const attendanceRef = firebase.database().ref(`attendance/${currentUser.rollnumber}`);
+                const attendanceData = {
+                    busId: busId,
+                    rollnumber: currentUser.rollnumber,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    entryTime: firebase.database.ServerValue.TIMESTAMP,
+                    token: token
+                };
+
+                await attendanceRef.push(attendanceData);
+
+                // Update token to mark it as used
+                await tokenRef.child('usedBy').child(currentUser.rollnumber).set(true);
+
+                // Show success
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString();
+                showScanSuccess(`Bus ${busId} - Marked at ${timeStr}`);
+
+            } catch (error) {
+                console.error("Error processing QR:", error);
+                showScanError("Error processing QR code. Please try again.");
+            }
+        }
+
+        function showScanSuccess(message) {
+            scanResult.classList.remove('hidden');
+            resultError.classList.add('hidden');
+            resultSuccess.classList.remove('hidden');
+            successMessage.textContent = message;
+            
+            addNotification('Attendance marked successfully!', 'success', 'just now');
+        }
+
+        function showScanError(message) {
+            scanResult.classList.remove('hidden');
+            resultSuccess.classList.add('hidden');
+            resultError.classList.remove('hidden');
+            errorMessage.textContent = message;
+        }
+    </script>
+</body>
+</html>
