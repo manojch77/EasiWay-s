@@ -465,16 +465,13 @@
                 </button>
             </div>
             
-            <!-- Entry/Exit Type Selection -->
-            <div class="flex gap-2 mb-4">
-                <button id="scan-entry" class="flex-1 bg-teal-600 text-white py-2 rounded-lg font-semibold">
-                    <i class="fas fa-sign-in-alt mr-1"></i> ENTRY
-                </button>
-                <button id="scan-exit" class="flex-1 bg-gray-600 text-white py-2 rounded-lg font-semibold">
-                    <i class="fas fa-sign-out-alt mr-1"></i> EXIT
-                </button>
+            <!-- Scan Instructions -->
+            <div class="bg-teal-600 bg-opacity-20 border border-teal-500 rounded-lg p-3 mb-4">
+                <p class="text-center text-teal-400 text-sm">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Scan the driver's QR code - it will automatically detect ENTRY or EXIT
+                </p>
             </div>
-            <p id="scan-type-label" class="text-center text-yellow-400 text-sm mb-2">Select ENTRY or EXIT first</p>
             
             <div id="reader" class="w-full rounded-lg overflow-hidden bg-black"></div>
             <div id="scan-status" class="mt-4 text-center">
@@ -1114,9 +1111,6 @@
         const scanQrBtn = document.getElementById('scan-qr');
         const scannerModal = document.getElementById('scanner-modal');
         const closeScannerBtn = document.getElementById('close-scanner');
-        const scanEntryBtn = document.getElementById('scan-entry');
-        const scanExitBtn = document.getElementById('scan-exit');
-        const scanTypeLabel = document.getElementById('scan-type-label');
         const scanResult = document.getElementById('scan-result');
         const resultSuccess = document.getElementById('result-success');
         const resultError = document.getElementById('result-error');
@@ -1124,37 +1118,9 @@
         const errorMessage = document.getElementById('error-message');
         const scanStatus = document.getElementById('scan-status');
         let html5QrCode = null;
-        let selectedScanType = null; // 'entry' or 'exit'
 
-        // Entry button click
-        scanEntryBtn.addEventListener('click', () => {
-            selectedScanType = 'entry';
-            scanEntryBtn.classList.remove('bg-gray-600');
-            scanEntryBtn.classList.add('bg-teal-600');
-            scanExitBtn.classList.remove('bg-teal-600');
-            scanExitBtn.classList.add('bg-gray-600');
-            scanTypeLabel.textContent = 'Now tap Scan QR to scan';
-            scanTypeLabel.classList.remove('text-yellow-400');
-            scanTypeLabel.classList.add('text-green-400');
-        });
-
-        // Exit button click
-        scanExitBtn.addEventListener('click', () => {
-            selectedScanType = 'exit';
-            scanExitBtn.classList.remove('bg-gray-600');
-            scanExitBtn.classList.add('bg-teal-600');
-            scanEntryBtn.classList.remove('bg-teal-600');
-            scanEntryBtn.classList.add('bg-gray-600');
-            scanTypeLabel.textContent = 'Now tap Scan QR to scan';
-            scanTypeLabel.classList.remove('text-yellow-400');
-            scanTypeLabel.classList.add('text-green-400');
-        });
-
+        // Simply open scanner - type is auto-detected from QR
         scanQrBtn.addEventListener('click', () => {
-            if (!selectedScanType) {
-                alert('Please select ENTRY or EXIT first!');
-                return;
-            }
             scannerModal.classList.remove('hidden');
             startScanner();
         });
