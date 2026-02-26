@@ -488,6 +488,10 @@
                     </div>
                 </div>
             </div>
+            <button id="cancel-scan" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center space-x-2">
+                <i class="fas fa-times"></i>
+                <span>Cancel</span>
+            </button>
         </div>
     </div>
 
@@ -1083,6 +1087,15 @@
             stopScanner();
             scannerModal.classList.add('hidden');
         });
+
+        // Cancel scan button handler
+        const cancelScanBtn = document.getElementById('cancel-scan');
+        if (cancelScanBtn) {
+            cancelScanBtn.addEventListener('click', () => {
+                stopScanner();
+                scannerModal.classList.add('hidden');
+            });
+        }
 
         function startScanner() {
             html5QrCode = new Html5Qrcode("reader");
