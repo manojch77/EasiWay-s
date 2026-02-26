@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EASIWAY - Barcode Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=UberMove:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'UberMove', 'Poppins', sans-serif;
+            background: #FFFFFF;
+            color: #000000;
+            min-height: 100vh;
+        }
+        
+        .uber-green { color: #06C167; }
+        .uber-green-bg { background: #06C167; }
+        
+        #scanner-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .scan-region {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%;
+            max-width: 350px;
+            height: 150px;
+            border: 3px solid #06C167;
+            border-radius: 12px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        }
+        
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #06C167, transparent);
+            animation: scanMove 2s ease-in-out infinite;
+        }
+        
+        @keyframes scanMove {
+            0%, 100% { top: 10%; }
+            50% { top: 90%; }
+        }
+        
+        .corner {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            border: 4px solid #06C167;
+        }
+        .corner-tl { top: -3px; left: -3px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+        .corner-tr { top: -3px; right: -3px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+        .corner-bl { bottom: -3px; left: -3px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+        .corner-br { bottom: -3px; right: -3px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+    <!-- Header -->
+    <div class="bg-black text-white p-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <img src="https://files.catbox.moe/8vijkw.svg" alt="EASIWAY" class="h-8">
+            <div>
+                <h1 class="font-semibold text-base">Barcode Scanner</h1>
+                <p class="text-xs text-gray-400" id="mode-label">Entry Mode</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="time-display" class="text-sm font-mono">--:--</span>
+        </div>
+    </div>
+
+    <!-- Mode Selection -->
+    <div class="bg-gray-100 p-2 flex gap-2">
+        <button id="entry-mode" class="flex-1 uber-green-bg text-white py-2 rounded-lg font-semibold text-base">
+            <i class="fas fa-sign-in-alt mr-1"></i> ENTRY
+        </button>
+        <button id="exit-mode" class="flex-1 bg-black text-white py-2 rounded-lg font-semibold text-base">
+            <i class="fas fa-sign-out-alt mr-1"></i> EXIT
+        </button>
+    </div>
+
+    <!-- Bus Selection -->
+    <div class="bg-white p-2 border-b">
+        <select id="bus-select" class="w-full p-2 border-2 border-gray-200 rounded-lg text-base font-medium">
+            <option value="">Select Bus</option>
+            <option value="1">Bus 01</option>
+            <option value="2">Bus 02</option>
+            <option value="3">Bus 03</option>
+            <option value="4">Bus 04</option>
+            <option value="5">Bus 05</option>
+            <option value="6">Bus 06</option>
+            <option value="7">Bus 07</option>
+            <option value="8">Bus 08</option>
+            <option value="9">Bus 09</option>
+            <option value="10">Bus 10</option>
+            <option value="11">Bus 11</option>
+            <option value="12">Bus 12</option>
+            <option value="13">Bus 13</option>
+            <option value="14">Bus 14</option>
+        </select>
+    </div>
+
+    <!-- Scanner -->
+    <div class="flex-1 relative bg-black overflow-hidden">
+        <video id="scanner-video" autoplay playsinline muted></video>
+        
+        <!-- Scan Box -->
+        <div class="scan-region" id="scan-region">
+            <div class="scan-line"></div>
+            <div class="corner corner-tl"></div>
+            <div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div>
+            <div class="corner corner-br"></div>
+        </div>
+        
+        <p class="absolute bottom-20 left-0 right-0 text-center text-white text-sm bg-black/50 py-2">
+            Point camera at barcode on ID card
+        </p>
+        
+        <!-- Status -->
+        <div class="absolute bottom-0 left-0 right-0 bg-black/80 text-white p-2 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div id="status-dot" class="w-2 h-2 rounded-full bg-green-500"></div>
+                <span id="status-text" class="text-xs">Ready</span>
+            </div>
+            <div>
+                <span id="scanned-count" class="text-base font-bold uber-green">0</span>
+                <span class="text-xs text-gray-400"> scanned</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-end justify-center">
+        <div class="bg-white w-full rounded-t-2xl p-4 animate-slide-up">
+            <div id="success-content" class="hidden">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-12 h-12 rounded-full uber-green-bg flex items-center justify-center">
+                        <i class="fas fa-check text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold uber-green">Marked!</h3>
+                        <p id="success-roll" class="text-gray-500 text-sm">EC22BC1234</p>
+                    </div>
+                </div>
+                <div class="bg-gray-100 rounded-lg p-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Bus</span><span id="success-bus" class="font-medium">Bus 01</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Type</span><span id="success-type" class="font-medium uber-green">ENTRY</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Time</span><span id="success-time" class="font-medium">08:30</span></div>
+                </div>
+                <button onclick="closeResult()" class="mt-3 w-full uber-green-bg text-white py-3 rounded-lg font-semibold">
+                    Scan Next
+                </button>
+            </div>
+            
+            <div id="error-content" class="hidden">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center">
+                        <i class="fas fa-times text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-red-500">Failed</h3>
+                        <p id="error-msg" class="text-gray-500 text-sm">Error</p>
+                    </div>
+                </div>
+                <button onclick="closeResult()" class="mt-3 w-full bg-black text-white py-3 rounded-lg font-semibold">
+                    Try Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg",
+            projectId: "easy-22b8",
+            databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        // Time windows (in minutes from midnight)
+        const TIME_WINDOWS = {
+            entry: { start: 7 * 60, end: 9.5 * 60 },
+            exit: { start: 16.5 * 60, end: 19 * 60 }
+        };
+
+        // State
+        let currentMode = 'entry';
+        let currentBusId = null;
+        let scannedCodes = new Set();
+        let videoStream = null;
+        let detector = null;
+        let isScanning = false;
+
+        // DOM elements
+        const video = document.getElementById('scanner-video');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const scannedCount = document.getElementById('scanned-count');
+
+        // Initialize
+        async function init() {
+            updateTime();
+            setInterval(updateTime, 1000);
+            updateModeUI();
+            await startCamera();
+        }
+
+        // Update time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('time-display').textContent = 
+                now.toLocaleTimeString('en-GB', { hour12: false });
+            
+            const mins = now.getHours() * 60 + now.getMinutes();
+            if (mins >= TIME_WINDOWS.entry.start && mins <= TIME_WINDOWS.entry.end && currentMode !== 'entry') {
+                setMode('entry');
+            } else if (mins >= TIME_WINDOWS.exit.start && mins <= TIME_WINDOWS.exit.end && currentMode !== 'exit') {
+                setMode('exit');
+            }
+        }
+
+        // Set mode
+        function setMode(mode) {
+            currentMode = mode;
+            scannedCodes.clear();
+            scannedCount.textContent = '0';
+            updateModeUI();
+        }
+
+        // Update mode UI
+        function updateModeUI() {
+            const entryBtn = document.getElementById('entry-mode');
+            const exitBtn = document.getElementById('exit-mode');
+            const label = document.getElementById('mode-label');
+            
+            if (currentMode === 'entry') {
+                entryBtn.className = 'flex-1 uber-green-bg text-white py-2 rounded-lg font-semibold text-base';
+                exitBtn.className = 'flex-1 bg-gray-300 text-gray-600 py-2 rounded-lg font-semibold text-base';
+                label.textContent = 'Entry (7:00-9:30 AM)';
+            } else {
+                entryBtn.className = 'flex-1 bg-gray-300 text-gray-600 py-2 rounded-lg font-semibold text-base';
+                exitBtn.className = 'flex-1 bg-black text-white py-2 rounded-lg font-semibold text-base';
+                label.textContent = 'Exit (4:30-7:00 PM)';
+            }
+        }
+
+        // Bus select
+        document.getElementById('bus-select').addEventListener('change', (e) => {
+            currentBusId = e.target.value;
+        });
+
+        // Mode buttons
+        document.getElementById('entry-mode').addEventListener('click', () => setMode('entry'));
+        document.getElementById('exit-mode').addEventListener('click', () => setMode('exit'));
+
+        // Start camera - only after bus is selected
+        async function startCamera() {
+            // Don't start until bus is selected
+            statusText.textContent = 'Select bus to start';
+            statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500';
+            
+            // Wait for bus selection
+            const checkBus = setInterval(() => {
+                if (currentBusId) {
+                    clearInterval(checkBus);
+                    initCamera();
+                }
+            }, 500);
+        }
+        
+        async function initCamera() {
+            try {
+                statusText.textContent = 'Starting camera...';
+                
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                
+                video.srcObject = videoStream;
+                await video.play();
+                
+                statusDot.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
+                statusText.textContent = 'Scanning...';
+                
+                // Try native BarcodeDetector first
+                if ('BarcodeDetector' in window) {
+                    detector = new BarcodeDetector({
+                        formats: ['code_128', 'code_39', 'ean_13', 'ean_8']
+                    });
+                    startNativeScan();
+                } else {
+                    // Fallback: just process continuously
+                    startScanning();
+                }
+                
+            } catch (err) {
+                console.error('Camera error:', err);
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                statusText.textContent = 'Camera error: ' + err.message;
+            }
+        }
+
+        // Native barcode detection
+        async function startNativeScan() {
+            if (!detector) return;
+            
+            isScanning = true;
+            
+            while (isScanning && video.srcObject) {
+                try {
+                    const barcodes = await detector.detect(video);
+                    
+                    if (barcodes.length > 0) {
+                        const code = barcodes[0].rawValue.trim();
+                        if (code && code.length >= 3) {
+                            handleDetectedCode(code);
+                        }
+                    }
+                } catch (e) {
+                    // Ignore detection errors
+                }
+                
+                await new Promise(r => setTimeout(r, 200));
+            }
+        }
+
+        // Fallback scanning (simpler detection)
+        function startScanning() {
+            isScanning = true;
+            statusText.textContent = 'Ready - scan barcode';
+        }
+
+        // Handle detected code
+        function handleDetectedCode(code) {
+            if (scannedCodes.has(code)) return;
+            
+            // Validate bus
+            if (!currentBusId) {
+                showError('Select a bus first');
+                return;
+            }
+            
+            // Validate time
+            const now = new Date();
+            const mins = now.getHours() * 60 + now.getMinutes();
+            const window = TIME_WINDOWS[currentMode];
+            
+            if (mins < window.start || mins > window.end) {
+                const timeStr = currentMode === 'entry' ? '7:00-9:30 AM' : '4:30-7:00 PM';
+                showError(`${currentMode.toUpperCase()} only ${timeStr}`);
+                return;
+            }
+            
+            // Process
+            processAttendance(code);
+        }
+
+        // Process attendance
+        async function processAttendance(rollNumber) {
+            scannedCodes.add(rollNumber);
+            scannedCount.textContent = scannedCodes.size;
+            
+            // Vibrate
+            if (navigator.vibrate) navigator.vibrate(200);
+            
+            // Sound
+            playBeep();
+            
+            // Show success
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+            
+            document.getElementById('success-roll').textContent = rollNumber.toUpperCase();
+            document.getElementById('success-bus').textContent = 'Bus ' + currentBusId.padStart(2, '0');
+            document.getElementById('success-type').textContent = currentMode.toUpperCase();
+            document.getElementById('success-time').textContent = timeStr;
+            
+            document.getElementById('success-content').classList.remove('hidden');
+            document.getElementById('error-content').classList.add('hidden');
+            document.getElementById('result-modal').classList.remove('hidden');
+            
+            // Save to Firebase
+            try {
+                const db = firebase.database();
+                
+                // Save to student attendance
+                await db.ref('attendance/' + rollNumber.toUpperCase()).push({
+                    busId: parseInt(currentBusId),
+                    rollnumber: rollNumber.toUpperCase(),
+                    type: currentMode,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    scannedAt: new Date().toISOString()
+                });
+                
+                // Save to bus attendance
+                await db.ref('busAttendance/bus' + currentBusId + '/' + currentMode).push({
+                    rollnumber: rollNumber.toUpperCase(),
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    scannedAt: new Date().toISOString()
+                });
+                
+                console.log('Saved to Firebase');
+            } catch (e) {
+                console.error('Firebase error:', e);
+            }
+        }
+
+        // Show error
+        function showError(msg) {
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            
+            document.getElementById('error-msg').textContent = msg;
+            document.getElementById('success-content').classList.add('hidden');
+            document.getElementById('error-content').classList.remove('hidden');
+            document.getElementById('result-modal').classList.remove('hidden');
+        }
+
+        // Close result
+        function closeResult() {
+            document.getElementById('result-modal').classList.add('hidden');
+        }
+
+        // Play beep
+        function playBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.frequency.value = 1200;
+                osc.type = 'sine';
+                
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            } catch(e) {}
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
