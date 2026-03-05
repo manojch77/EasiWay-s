@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EASIWAY Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-compat.js"></script>
+    <script>
+        // Main Firebase config (for students, fees, buses, notifications)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGoVKtWRDYDvaim2s3HgI_H9H9KoINNZg",
+            authDomain: "easiway-1b022.firebaseapp.com",
+            databaseURL: "https://easiway-1b022-default-rtdb.firebaseio.com",
+            projectId: "easiway-1b022",
+            storageBucket: "easiway-1b022.firebasestorage.app",
+            messagingSenderId: "357042949491",
+            appId: "1:357042949491:web:91590e787a5d742307c906",
+            measurementId: "G-5H78VJJLPN"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        // Secondary Firebase config for live tracking only
+        const trackingConfig = {
+            apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg",
+            authDomain: "easy-22b8.firebaseapp.com",
+            databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com",
+            projectId: "easy-22b8",
+            storageBucket: "easy-22b8.firebasestorage.app",
+            messagingSenderId: "1026420258090",
+            appId: "1:1026420258090:web:2e12ce0f0330b8109d5a53",
+            measurementId: "G-PFXRFV09Y8"
+        };
+        // Create separate app for tracking
+        const trackingApp = firebase.initializeApp(trackingConfig, 'tracking');
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        :root { --primary: #0ea5e9; --primary-dark: #0284c7; --secondary: #8b5cf6; --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --dark: #0f172a; --light: #f8fafc; --gray: #64748b; --border: #e2e8f0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        .sidebar { width: 260px; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; }
+        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-nav { padding: 1rem 0; }
+        .nav-item { display: flex; align-items: center; padding: 0.75rem 1.5rem; color: #94a3b8; text-decoration: none; transition: all 0.2s ease; cursor: pointer; border-left: 3px solid transparent; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .nav-item.active { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border-left-color: #0ea5e9; }
+        .nav-item i { width: 20px; margin-right: 0.75rem; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+        .top-header { background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .card-header { padding: 1.25rem; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1e293b; }
+        .card-body { padding: 1.25rem; }
+        .stat-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: transform 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+        #admin-map { height: 400px; width: 100%; border-radius: 8px; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { background: #f8fafc; padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.875rem; border-bottom: 2px solid #e2e8f0; }
+        .data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; font-size: 0.875rem; }
+        .data-table tr:hover { background: #f8fafc; }
+        .btn { padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; border: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+        .btn-primary { background: #0ea5e9; color: white; }
+        .btn-primary:hover { background: #0284c7; }
+        .btn-success { background: #22c55e; color: white; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-outline { background: white; border: 1px solid #94a3b8; color: #475569; }
+        .btn-outline:hover { background: #f1f5f9; border-color: #64748b; }
+        .btn-action-edit { background: #3b82f6; color: white; border: none; }
+        .btn-action-edit:hover { background: #2563eb; }
+        .btn-action-move { background: #8b5cf6; color: white; border: none; }
+        .btn-action-move:hover { background: #7c3aed; }
+        .btn-action-delete { background: #ef4444; color: white; border: none; }
+        .btn-action-delete:hover { background: #dc2626; }
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; font-size: 0.875rem; }
+        .form-input, .form-select { width: 100%; padding: 0.625rem 0.875rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.875rem; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal-header { padding: 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 1.25rem; }
+        .modal-footer { padding: 1.25rem; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 0.75rem; }
+        .badge { padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .login-card { background: white; border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 200; }
+        .toast { background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: flex; align-items: center; gap: 0.75rem; transform: translateX(120%); transition: transform 0.3s ease; margin-bottom: 0.5rem; }
+        .toast.show { transform: translateX(0); }
+        .toast-success { border-left: 4px solid #22c55e; }
+        .toast-error { border-left: 4px solid #ef4444; }
+        .search-box { position: relative; }
+        .search-box input { padding-left: 2.5rem; }
+        .search-box i { position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .bus-marker-admin { background-color: #0ea5e9; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        .dropdown { position: relative; }
+        .dropdown-menu { position: absolute; top: 100%; right: 0; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); min-width: 160px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all 0.2s ease; z-index: 50; }
+        .dropdown:hover .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+        .notification-item { padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+        .notification-item:hover { background: #f8fafc; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="login-section" class="login-container">
+        <div class="login-card">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">EASIWAY Admin</h1>
+                <p class="text-gray-500 mt-1">College Bus Management System</p>
+            </div>
+            <form id="admin-login-form">
+                <div class="form-group">
+                    <label class="form-label">Admin Roll Number</label>
+                    <input type="text" id="admin-roll" class="form-input" placeholder="Enter admin roll number" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="admin-password" class="form-input" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-full justify-center py-3"><i class="fas fa-sign-in-alt"></i> Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="text-white text-xl font-bold flex items-center"><i class="fas fa-bus text-sky-400 mr-2"></i> EASIWAY</h1>
+                <p class="text-gray-500 text-sm mt-1">Admin Panel</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-page="dashboard"><i class="fas fa-th-large"></i> Dashboard</a>
+                <a class="nav-item" data-page="tracking"><i class="fas fa-map-marker-alt"></i> Live Tracking</a>
+                <a class="nav-item" data-page="students"><i class="fas fa-users"></i> Student Management</a>
+                <a class="nav-item" data-page="fees"><i class="fas fa-dollar-sign"></i> Fee Management</a>
+                <a class="nav-item" data-page="notifications"><i class="fas fa-bell"></i> Notifications</a>
+                <a class="nav-item" data-page="buses"><i class="fas fa-bus"></i> Bus Management</a>
+                <div class="mt-8 pt-4 border-t border-gray-700"><a class="nav-item text-red-400" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="flex items-center gap-4"><h2 class="text-xl font-semibold text-gray-800" id="page-title">Dashboard</h2></div>
+                <div class="flex items-center gap-4">
+                    <div class="relative dropdown">
+                        <button class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600"><i class="fas fa-bell"></i></button>
+                        <div class="dropdown-menu"><div class="p-3 border-b"><p class="font-semibold">Notifications</p></div><div id="header-notifications"><div class="p-3 text-gray-500 text-sm">No new</div></div></div>
+                    </div>
+                    <div class="flex items-center gap-3 pl-4 border-l">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-white font-bold">A</div>
+                        <div><p class="font-medium text-sm">Admin</p><p class="text-xs text-gray-500">Roll: 229</p></div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="p-6" id="content-area">
+                <div id="page-dashboard" class="page-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Total Students</p><p class="text-2xl font-bold mt-1" id="total-students">0</p></div><div class="stat-icon bg-sky-100 text-sky-600"><i class="fas fa-users"></i></div></div></div>
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Active Buses</p><p class="text-2xl font-bold mt-1" id="total-buses">0</p></div><div class="stat-icon bg-purple-100 text-purple-600"><i class="fas fa-bus"></i></div></div></div>
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Fee Collected</p><p class="text-2xl font-bold mt-1" id="fee-collected">₹0</p></div><div class="stat-icon bg-green-100 text-green-600"><i class="fas fa-rupee-sign"></i></div></div></div>
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Pending Dues</p><p class="text-2xl font-bold mt-1" id="pending-dues">0</p></div><div class="stat-icon bg-red-100 text-red-600"><i class="fas fa-exclamation-triangle"></i></div></div></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <div class="lg:col-span-2"><div class="card"><div class="card-header">Live Bus Map</div><div class="card-body p-0"><div id="admin-map"></div></div></div></div>
+                        <div class="card"><div class="card-header">Recent Activity</div><div class="card-body" id="recent-activity"><p class="text-gray-500 text-center py-8">Loading...</p></div></div>
+                    </div>
+                    <div class="card"><div class="card-header">Fee Overview</div><div class="card-body"><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="bg-green-50 rounded-lg p-4"><p class="text-sm text-green-600">Paid</p><p class="text-xl font-bold" id="fee-paid-count">0</p></div><div class="bg-yellow-50 rounded-lg p-4"><p class="text-sm text-yellow-600">Pending</p><p class="text-xl font-bold" id="fee-pending-count">0</p></div><div class="bg-red-50 rounded-lg p-4"><p class="text-sm text-red-600">Overdue</p><p class="text-xl font-bold" id="fee-overdue-count">0</p></div></div></div></div>
+                </div>
+
+                <div id="page-tracking" class="page-content hidden">
+                    <div class="card"><div class="card-header">Live Bus Tracking <span class="text-xs text-gray-500 ml-2">(Using easy-22b8 Firebase)</span></div><div class="card-body p-0"><div id="tracking-map" style="height: 500px;"></div></div></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6" id="bus-cards-container"></div>
+                </div>
+
+                <div id="page-students" class="page-content hidden">
+                    <div class="card">
+                        <div class="card-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex items-center gap-4"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="student-search" class="form-input pl-10" placeholder="Search..."></div><select id="bus-filter" class="form-select w-40"><option value="">All Buses</option></select></div>
+                            <button class="btn btn-primary" onclick="openModal('student')"><i class="fas fa-plus"></i> Add Student</button>
+                        </div>
+                        <div class="card-body p-0"><table class="data-table"><thead><tr><th>Roll</th><th>Name</th><th>Bus</th><th>Boarding Point</th><th>Bus Fee</th><th>Phone</th><th>Fee Status</th><th>Actions</th></tr></thead><tbody id="students-tbody"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="page-fees" class="page-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Total Fee</p><p class="text-2xl font-bold" id="total-fee-amount">₹0</p></div>
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Collected</p><p class="text-2xl font-bold text-green-600" id="total-collected">₹0</p></div>
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Due</p><p class="text-2xl font-bold text-yellow-600" id="total-due">₹0</p></div>
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Collection Rate</p><p class="text-2xl font-bold text-sky-600" id="collection-rate">0%</p></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="search-box"><i class="fas fa-search"></i><input type="text" id="fee-search" class="form-input pl-10" placeholder="Search..."></div>
+                                <select id="fee-status-filter" class="form-select w-32"><option value="">All Status</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
+                                <select id="fee-bus-filter" class="form-select w-40"><option value="">All Buses</option></select>
+                            </div>
+                            <button class="btn btn-primary" onclick="openModal('fee')"><i class="fas fa-plus"></i> Add Fee</button>
+                        </div>
+                        <div class="card-body p-0"><table class="data-table"><thead><tr><th>Roll</th><th>Name</th><th>Bus No.</th><th>Boarding Point</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fee-tbody"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="page-notifications" class="page-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="card">
+                            <div class="card-header">Send Notification</div>
+                            <div class="card-body">
+                                <div class="form-group"><label class="form-label">Type</label><select id="notification-type" class="form-select"><option value="fee_reminder">Fee Reminder</option><option value="transport">Transport</option><option value="emergency">Emergency</option></select></div>
+                                <div class="form-group"><label class="form-label">Send To</label><select id="notification-target" class="form-select"><option value="all">All</option><option value="bus">Bus</option><option value="individual">Student</option></select></div>
+                                <div class="form-group hidden" id="bus-select-group"><label class="form-label">Bus</label><select id="notification-bus" class="form-select"></select></div>
+                                <div class="form-group hidden" id="student-select-group"><label class="form-label">Student</label><select id="notification-student" class="form-select"></select></div>
+                                <div class="form-group"><label class="form-label">Message</label><textarea id="notification-message" class="form-input" rows="4"></textarea></div>
+                                <button class="btn btn-primary w-full" onclick="sendNotification()"><i class="fas fa-paper-plane"></i> Send</button>
+                            </div>
+                        </div>
+                        <div class="card"><div class="card-header">History</div><div class="card-body p-0 max-h-[500px] overflow-y-auto" id="notification-history"></div></div>
+                    </div>
+                </div>
+
+                <div id="page-buses" class="page-content hidden">
+                    <div class="card">
+                        <div class="card-header flex justify-between items-center">
+                            <span>Bus Management</span>
+                            <button class="btn btn-primary" onclick="openModal('bus')"><i class="fas fa-plus"></i> Add Bus</button>
+                        </div>
+                        <div class="card-body p-0"><table class="data-table"><thead><tr><th>Bus ID</th><th>Bus Number</th><th>Route</th><th>Driver</th><th>Contact</th><th>Students</th><th>Status</th><th>Actions</th></tr></thead><tbody id="buses-tbody"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="student-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold" id="student-modal-title">Add Student</h3><button class="text-gray-400" onclick="closeModal('student')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="student-edit-roll">
+                <div class="form-group"><label class="form-label">Roll Number *</label><input type="text" id="student-roll" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">Name *</label><input type="text" id="student-name" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">Bus *</label><select id="student-bus" class="form-select" required onchange="updateBoardingPoints()"><option value="">Select Bus</option></select></div>
+                <div class="form-group"><label class="form-label">Boarding Point *</label><select id="student-boarding" class="form-select" required><option value="">Select Stop</option></select></div>
+                <div class="form-group"><label class="form-label">Bus Fee (₹) *</label><input type="number" id="student-fee" class="form-input" placeholder="Enter bus fee" required></div>
+                <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="student-phone" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Parent Phone</label><input type="tel" id="student-parent-phone" class="form-input"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('student')">Cancel</button><button class="btn btn-primary" onclick="saveStudent()">Save</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="fee-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold" id="fee-modal-title">Add Fee</h3><button class="text-gray-400" onclick="closeModal('fee')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="fee-edit-roll">
+                <div class="form-group"><label class="form-label">Roll Number *</label><input type="text" id="fee-roll" class="form-input" required onchange="loadStudentFee()"></div>
+                <div class="form-group"><label class="form-label">Student Name</label><input type="text" id="fee-student-name" class="form-input" readonly></div>
+                <div class="form-group"><label class="form-label">Bus Number</label><input type="text" id="fee-bus-number" class="form-input" readonly></div>
+                <div class="form-group"><label class="form-label">Boarding Point</label><input type="text" id="fee-boarding" class="form-input" readonly></div>
+                <div class="form-group"><label class="form-label">Total Fee *</label><input type="number" id="fee-total" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">Paid Amount</label><input type="number" id="fee-paid" class="form-input" value="0"></div>
+                <div class="form-group"><label class="form-label">Payment Mode</label><select id="fee-mode" class="form-select"><option value="cash">Cash</option><option value="online">Online</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('fee')">Cancel</button><button class="btn btn-primary" onclick="saveFee()">Save</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="bus-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold" id="bus-modal-title">Add Bus</h3><button class="text-gray-400" onclick="closeModal('bus')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="bus-edit-id">
+                <div class="form-group"><label class="form-label">Bus ID *</label><input type="number" id="bus-id" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">Bus Number *</label><input type="text" id="bus-number" class="form-input" placeholder="e.g., AP16AB1234" required></div>
+                <div class="form-group"><label class="form-label">Route *</label><input type="text" id="bus-route" class="form-input" placeholder="e.g., Vijayawada - Guntur" required></div>
+                <div class="form-group"><label class="form-label">Boarding Points (comma separated) *</label><input type="text" id="bus-stops" class="form-input" placeholder="e.g., Benz Circle, Governor Peta, Labbipet" required></div>
+                <div class="form-group"><label class="form-label">Driver *</label><input type="text" id="bus-driver" class="form-input" required></div>
+                <div class="form-group"><label class="form-label">Contact *</label><input type="tel" id="bus-contact" class="form-input" required></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('bus')">Cancel</button><button class="btn btn-primary" onclick="saveBus()">Save</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="move-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold">Move Student</h3><button class="text-gray-400" onclick="closeModal('move')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <p><strong>Student:</strong> <span id="move-student-name"></span></p>
+                <p><strong>Current Bus:</strong> <span id="move-current-bus"></span></p>
+                <input type="hidden" id="move-student-roll">
+                <div class="form-group mt-4"><label class="form-label">New Bus *</label><select id="move-new-bus" class="form-select"><option value="">Select Bus</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('move')">Cancel</button><button class="btn btn-primary" onclick="confirmMoveStudent()">Move</button></div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        var currentUser = null;
+        var studentsData = [];
+        var busesData = [];
+        var feesData = [];
+        var adminMap = null;
+        var trackingMap = null;
+        var busMarkers = {};
+        var trackingMarkers = {};
+        // Default bus routes with 14 buses
+        var defaultBuses = [
+            { id: "1", number: "AP16AB1234", route: "Vijayawada Main", stops: "Benz Circle,Governor Peta,Labbipet,SRM University" },
+            { id: "2", number: "AP16AB1235", route: "Tenali Route", stops: "Kamyaka,Patamata,Vijayawada Railway Station" },
+            { id: "3", number: "AP16AB1236", route: "Mangalagiri Route", stops: "KPCL,Vidyadharpeta,Mangalagiri" },
+            { id: "4", number: "AP16AB1237", route: "Guntur Route", stops: "Benz Circle,Governor Peta,L合适" },
+            { id: "5", number: "AP16AB1238", route: "Kankipadu Route", stops: "Kankipadu,Pedavadlapudi" },
+            { id: "6", number: "AP16AB1239", route: "Penamaluru Route", stops: "Penamaluru,Khazikhan" },
+            { id: "7", number: "AP16AB1240", route: "Poranki Route", stops: "Poranki,Dwaraka" },
+            { id: "8", number: "AP16AB1241", route: "Vijayawada East", stops: "Auto Nagar,Radhey Nagar" },
+            { id: "9", number: "AP16AB1242", route: "Vijayawada West", stops: "Ashok Nagar,Gandhi Nagar" },
+            { id: "10", number: "AP16AB1243", route: "Benz Circle Route", stops: "Benz Circle,MG Road" },
+            { id: "11", number: "AP16AB1244", route: "Governor Peta Route", stops: "Governor Peta,Surr Colony" },
+            { id: "12", number: "AP16AB1245", route: "Labbipet Route", stops: "Labbipet,Pettah" },
+            { id: "13", number: "AP16AB1246", route: "SRM Route", stops: "SRM University,Campus" },
+            { id: "14", number: "AP16AB1247", route: "Gudivada Route", stops: "Dmart,yerukapadu down,Bus Stand,Sarath Theather,Market,Nehru Chok,Sonovision,Flavours,Yumpty stomack,MoreShop,Bank of Baroda,RCM School,Nayara petrolbunk,Ghantasala Complex,Ramesh sir stop,Jonnapadu,Dosapadu Road,Puttagunta,Perikeedu" }
+        ];
+
+        // All boarding stops for Bus 14 (as provided by user)
+        var bus14Stops = [
+            { name: "Dmart", lat: 16.42844, lng: 80.98244 },
+            { name: "yerukapadu down", lat: 16.428392696552013, lng: 80.98699681028654 },
+            { name: "Bus Stand", lat: 16.43120, lng: 80.99713 },
+            { name: "Sarath Theather", lat: 16.431096922796534, lng: 80.99607401436005 },
+            { name: "Market", lat: 16.43378, lng: 80.99576 },
+            { name: "Nehru Chok", lat: 16.43459, lng: 80.99316 },
+            { name: "Sonovision", lat: 16.43624, lng: 80.99252 },
+            { name: "Flavours", lat: 16.43853106248064, lng: 80.99233800510629 },
+            { name: "Yumpty stomack", lat: 16.439594510505724, lng: 80.99218068405925 },
+            { name: "MoreShop", lat: 16.44015, lng: 80.99206 },
+            { name: "Bank of Baroda", lat: 16.441367455381187, lng: 80.99206720193592 },
+            { name: "RCM School", lat: 16.44323, lng: 80.99137 },
+            { name: "Nayara petrolbunk", lat: 16.44500, lng: 80.99173 },
+            { name: "Ghantasala Complex", lat: 16.44564, lng: 80.99121 },
+            { name: "Ramesh sir stop", lat: 16.45265, lng: 80.98913 },
+            { name: "Jonnapadu", lat: 16.48044, lng: 80.97440 },
+            { name: "Dosapadu Road", lat: 16.48315, lng: 80.97166 },
+            { name: "Puttagunta", lat: 16.515664415785103, lng: 80.96003109002666 },
+            { name: "Perikeedu", lat: 16.61512, lng: 80.97157 }
+        ];
+
+        var stopsData = {}; // Store stops for each bus
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            checkAdminAuth();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('admin-login-form').addEventListener('submit', handleAdminLogin);
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+            document.querySelectorAll('.nav-item[data-page]').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    navigateTo(this.getAttribute('data-page'));
+                });
+            });
+            document.getElementById('student-search').addEventListener('input', filterStudents);
+            document.getElementById('fee-search').addEventListener('input', filterFees);
+            document.getElementById('bus-filter').addEventListener('change', filterStudents);
+            document.getElementById('fee-status-filter').addEventListener('change', filterFees);
+            document.getElementById('fee-bus-filter').addEventListener('change', filterFees);
+            document.getElementById('notification-target').addEventListener('change', function() {
+                document.getElementById('bus-select-group').classList.toggle('hidden', this.value !== 'bus');
+                document.getElementById('student-select-group').classList.toggle('hidden', this.value !== 'individual');
+            });
+            document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) overlay.classList.remove('active');
+                });
+            });
+        }
+
+        function checkAdminAuth() {
+            var session = sessionStorage.getItem('adminSession');
+            if (session) {
+                currentUser = JSON.parse(session);
+                showDashboard();
+            }
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            var roll = document.getElementById('admin-roll').value.trim();
+            var password = document.getElementById('admin-password').value.trim();
+            
+            if (!roll || !password) {
+                showToast('Please enter roll number and password', 'error');
+                return;
+            }
+            
+            // Check Firebase for admin credentials
+            firebase.database().ref('admins/' + roll).once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    var adminData = snapshot.val();
+                    if (adminData.password === password) {
+                        currentUser = { roll: roll, name: adminData.name || 'Admin' };
+                        sessionStorage.setItem('adminSession', JSON.stringify(currentUser));
+                        showDashboard();
+                        showToast('Welcome, ' + (adminData.name || 'Admin') + '!', 'success');
+                    } else {
+                        showToast('Invalid password', 'error');
+                    }
+                } else {
+                    // Fallback to hardcoded credentials for demo
+                    if (roll === '229' && password === '299#') {
+                        currentUser = { roll: '229', name: 'Admin' };
+                        sessionStorage.setItem('adminSession', JSON.stringify(currentUser));
+                        showDashboard();
+                        showToast('Welcome back, Admin!', 'success');
+                    } else {
+                        showToast('Invalid credentials', 'error');
+                    }
+                }
+            }).catch(function(error) {
+                console.error('Login error:', error);
+                // Fallback to hardcoded credentials if Firebase fails
+                if (roll === '229' && password === '299#') {
+                    currentUser = { roll: '229', name: 'Admin' };
+                    sessionStorage.setItem('adminSession', JSON.stringify(currentUser));
+                    showDashboard();
+                    showToast('Welcome back, Admin!', 'success');
+                } else {
+                    showToast('Invalid credentials', 'error');
+                }
+            });
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('adminSession');
+            currentUser = null;
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadAllData();
+            initAdminMap();
+        }
+
+        function loadAllData() { loadStudents(); loadBuses(); loadFees(); loadNotifications(); }
+
+function loadStudents() {
+            firebase.database().ref('students').once('value', function(snapshot) {
+                studentsData = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        studentsData.push({ rollNumber: child.key, ...child.val() });
+                    });
+                }
+                updateStudentsTable();
+                updateBusFilters();
+                updateNotificationStudentDropdown();
+                document.getElementById('total-students').textContent = studentsData.length;
+            });
+        }
+
+        function loadBuses() {
+            firebase.database().ref('buses').once('value', function(snapshot) {
+                busesData = [];
+                stopsData = {};
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var busData = child.val();
+                        busesData.push({ id: child.key, ...busData });
+                        // Store stops for each bus
+                        if (busData.stops) {
+                            stopsData[child.key] = busData.stops.split(',').map(s => s.trim());
+                        }
+                    });
+                }
+                
+                // If no buses in Firebase, load default buses
+                if (busesData.length === 0) {
+                    defaultBuses.forEach(function(bus) {
+                        busesData.push(bus);
+                        if (bus.stops) {
+                            stopsData[bus.id] = bus.stops.split(',').map(s => s.trim());
+                        }
+                    });
+                    // Save default buses to Firebase
+                    defaultBuses.forEach(function(bus) {
+                        firebase.database().ref('buses/' + bus.id).set(bus);
+                    });
+                }
+                
+                updateBusesTable();
+                updateBusCards();
+                updateBusDropdowns();
+            });
+        }
+
+        function loadFees() {
+            firebase.database().ref('fees').once('value', function(snapshot) {
+                feesData = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        feesData.push({ rollNumber: child.key, ...child.val() });
+                    });
+                }
+                updateFeeTable();
+                updateFeeStats();
+            });
+        }
+
+        function loadNotifications() {
+            firebase.database().ref('notifications').orderByChild('timestamp').limitToLast(20).once('value', function(snapshot) {
+                var container = document.getElementById('notification-history');
+                container.innerHTML = '';
+                if (snapshot.exists()) {
+                    var notifs = [];
+                    snapshot.forEach(function(child) { notifs.push(child.val()); });
+                    notifs.reverse().forEach(function(n) {
+                        var div = document.createElement('div');
+                        div.className = 'notification-item';
+                        div.innerHTML = '<p class="text-sm">' + (n.message || 'Notification') + '</p><p class="text-xs text-gray-500">' + formatDate(n.timestamp) + '</p>';
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">No notifications</p>';
+                }
+            });
+        }
+
+        function navigateTo(page) {
+            document.querySelectorAll('.nav-item').forEach(function(item) {
+                item.classList.remove('active');
+                if (item.getAttribute('data-page') === page) item.classList.add('active');
+            });
+            var titles = { 'dashboard': 'Dashboard', 'tracking': 'Live Tracking', 'students': 'Student Management', 'fees': 'Fee Management', 'notifications': 'Notifications', 'buses': 'Bus Management' };
+            document.getElementById('page-title').textContent = titles[page] || 'Dashboard';
+            document.querySelectorAll('.page-content').forEach(function(c) { c.classList.add('hidden'); });
+            document.getElementById('page-' + page).classList.remove('hidden');
+            if (page === 'tracking' && !trackingMap) setTimeout(initTrackingMap, 100);
+        }
+
+        function initAdminMap() {
+            if (adminMap) return;
+            adminMap = L.map('admin-map').setView([16.7, 81.1], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(adminMap);
+            L.marker([16.696499056086402, 81.05052784442461]).addTo(adminMap).bindPopup('<b>College</b>');
+            loadBusLocationsForMap();
+        }
+
+        function initTrackingMap() {
+            if (trackingMap) return;
+            trackingMap = L.map('tracking-map').setView([16.7, 81.1], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(trackingMap);
+            L.marker([16.696499056086402, 81.05052784442461]).addTo(trackingMap).bindPopup('<b>College</b>');
+            loadBusLocationsForTracking();
+        }
+
+        function loadBusLocationsForMap() {
+            // Use tracking Firebase app for live locations on dashboard map
+            firebase.database(trackingApp).ref('buses').once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var busData = child.val();
+                        if (busData.location && busData.location.lat) {
+                            addBusMarkerToMap(child.key, busData);
+                            // Update busesData with location for status
+                            updateBusLocationInData(child.key, busData);
+                        }
+                    });
+                }
+            });
+            
+            // Listen for real-time updates on dashboard map
+            firebase.database(trackingApp).ref('buses').on('child_changed', function(snapshot) {
+                var busData = snapshot.val();
+                if (busData.location && busData.location.lat) {
+                    addBusMarkerToMap(snapshot.key, busData);
+                    updateBusLocationInData(snapshot.key, busData);
+                }
+            });
+        }
+
+        function loadBusLocationsForTracking() {
+            // Use tracking Firebase app for live locations
+            firebase.database(trackingApp).ref('buses').once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var busData = child.val();
+                        addBusMarkerToTracking(child.key, busData);
+                        // Update busesData with location for status
+                        updateBusLocationInData(child.key, busData);
+                    });
+                }
+            });
+            
+            // Listen for real-time updates
+            firebase.database(trackingApp).ref('buses').on('child_changed', function(snapshot) {
+                var busData = snapshot.val();
+                addBusMarkerToTracking(snapshot.key, busData);
+                // Update busesData with location for status
+                updateBusLocationInData(snapshot.key, busData);
+            });
+            
+            // Also listen for new buses being added
+            firebase.database(trackingApp).ref('buses').on('child_added', function(snapshot) {
+                var busData = snapshot.val();
+                addBusMarkerToTracking(snapshot.key, busData);
+                updateBusLocationInData(snapshot.key, busData);
+            });
+        }
+        
+        function updateBusLocationInData(busId, busData) {
+            // Update or add bus to busesData if it has location
+            var existingBus = busesData.find(function(b) { return b.id == busId; });
+            if (busData.location && busData.location.lat) {
+                if (existingBus) {
+                    existingBus.location = busData.location;
+                } else {
+                    busesData.push({ id: busId, location: busData.location, number: 'Bus ' + busId });
+                }
+                // Update UI to show active status
+                updateBusCards();
+                updateBusesTable();
+            }
+        }
+
+        function addBusMarkerToMap(busId, bus) {
+            if (!bus.location || !bus.location.lat) return;
+            if (adminMap) {
+                var marker = L.marker([bus.location.lat, bus.location.lng], {
+                    icon: L.divIcon({ className: 'bus-marker-admin', html: busId, iconSize: [30, 30] })
+                }).addTo(adminMap);
+                marker.bindPopup('<b>Bus ' + busId + '</b><br>' + (bus.route || ''));
+                busMarkers[busId] = marker;
+            }
+        }
+
+        function addBusMarkerToTracking(busId, bus) {
+            if (!bus.location || !bus.location.lat || !trackingMap) return;
+            if (trackingMarkers[busId]) trackingMap.removeLayer(trackingMarkers[busId]);
+            var marker = L.marker([bus.location.lat, bus.location.lng], {
+                icon: L.divIcon({ className: 'bus-marker-admin', html: busId, iconSize: [30, 30] })
+            }).addTo(trackingMap);
+            marker.bindPopup('<b>Bus ' + busId + '</b><br>' + (bus.route || '') + '<br>Driver: ' + (bus.driver || 'N/A'));
+            trackingMarkers[busId] = marker;
+        }
+
+        function updateStudentsTable() {
+            var tbody = document.getElementById('students-tbody');
+            var search = document.getElementById('student-search').value.toLowerCase();
+            var busFilter = document.getElementById('bus-filter').value;
+            var filtered = studentsData.filter(function(s) {
+                var matchSearch = (s.name || '').toLowerCase().includes(search) || (s.rollNumber || '').toLowerCase().includes(search);
+                var matchBus = !busFilter || s.busId == busFilter;
+                return matchSearch && matchBus;
+            });
+            if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">No students</td></tr>'; return; }
+            tbody.innerHTML = filtered.map(function(student) {
+                var feeStatus = getStudentFeeStatus(student.rollNumber);
+                var bus = busesData.find(function(b) { return b.id == student.busId; });
+                var busNumber = bus ? bus.number : 'N/A';
+return '<tr><td class="font-medium">' + student.rollNumber + '</td><td>' + (student.name || 'N/A') + '</td><td>' + (busNumber || 'Not Assigned') + '</td><td>' + (student.boardingPoint || 'N/A') + '</td><td>₹' + (student.busFee || 0) + '</td><td>' + (student.phone || 'N/A') + '</td><td><span class="badge ' + feeStatus.badge + '">' + feeStatus.status + '</span></td><td><div class="flex gap-1"><button class="btn btn-action-edit py-1 px-2 rounded text-white text-xs" title="Edit" onclick="editStudent(\'' + student.rollNumber + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-action-move py-1 px-2 rounded text-white text-xs" title="Move" onclick="openMoveModal(\'' + student.rollNumber + '\')"><i class="fas fa-exchange-alt"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteStudent(\'' + student.rollNumber + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+            }).join('');
+        }
+
+        function getStudentFeeStatus(rollNumber) {
+            var fee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
+            if (!fee) return { status: 'Pending', badge: 'badge-warning' };
+            var due = (fee.totalFee || 0) - (fee.paid || 0);
+            if (due <= 0) return { status: 'Paid', badge: 'badge-success' };
+            return { status: 'Due: ₹' + due, badge: 'badge-danger' };
+        }
+
+        function filterStudents() { updateStudentsTable(); }
+
+        function updateBusFilters() {
+            var opts = '<option value="">All Buses</option>';
+            var selOpts = '<option value="">Select Bus</option>';
+            busesData.forEach(function(b) {
+                var label = b.number ? b.number + ' - ' + b.route : 'Bus ' + b.id;
+                opts += '<option value="' + b.id + '">' + label + '</option>';
+                selOpts += '<option value="' + b.id + '">' + label + '</option>';
+            });
+            document.getElementById('bus-filter').innerHTML = opts;
+            document.getElementById('student-bus').innerHTML = selOpts;
+            document.getElementById('move-new-bus').innerHTML = selOpts;
+            document.getElementById('notification-bus').innerHTML = selOpts;
+            
+            // Also update fee bus filter
+            document.getElementById('fee-bus-filter').innerHTML = '<option value="">All Buses</option>' + opts;
+        }
+
+        function updateBoardingPoints() {
+            var busId = document.getElementById('student-bus').value;
+            var boardingSelect = document.getElementById('student-boarding');
+            boardingSelect.innerHTML = '<option value="">Select Stop</option>';
+            
+            if (busId && stopsData[busId]) {
+                stopsData[busId].forEach(function(stop) {
+                    boardingSelect.innerHTML += '<option value="' + stop + '">' + stop + '</option>';
+                });
+            }
+        }
+
+        function loadStudentFee() {
+            var roll = document.getElementById('fee-roll').value.trim();
+            var student = studentsData.find(function(s) { return s.rollNumber === roll; });
+            
+            if (student) {
+                document.getElementById('fee-student-name').value = student.name || '';
+                var bus = busesData.find(function(b) { return b.id == student.busId; });
+                document.getElementById('fee-bus-number').value = bus ? bus.number : '';
+                document.getElementById('fee-boarding').value = student.boardingPoint || '';
+                document.getElementById('fee-total').value = student.busFee || 0;
+            } else {
+                document.getElementById('fee-student-name').value = '';
+                document.getElementById('fee-bus-number').value = '';
+                document.getElementById('fee-boarding').value = '';
+                document.getElementById('fee-total').value = '';
+            }
+        }
+
+        function updateFeeTable() {
+            var tbody = document.getElementById('fee-tbody');
+            var search = document.getElementById('fee-search').value.toLowerCase();
+            var statusFilter = document.getElementById('fee-status-filter').value;
+            var busFilter = document.getElementById('fee-bus-filter').value;
+            
+            var filtered = feesData.filter(function(f) {
+                var student = studentsData.find(function(s) { return s.rollNumber === f.rollNumber; });
+                var matchSearch = (f.rollNumber || '').toLowerCase().includes(search) || (student && (student.name || '').toLowerCase().includes(search));
+                var matchStatus = !statusFilter || getFeeStatus(f) === statusFilter;
+                var matchBus = !busFilter || (student && student.busId == busFilter);
+                return matchSearch && matchStatus && matchBus;
+            });
+            if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">No records</td></tr>'; return; }
+            tbody.innerHTML = filtered.map(function(fee) {
+                var student = studentsData.find(function(s) { return s.rollNumber === fee.rollNumber; });
+                var bus = student ? busesData.find(function(b) { return b.id == student.busId; }) : null;
+                var total = fee.totalFee || 0;
+                var paid = fee.paid || 0;
+                var due = total - paid;
+                var status = getFeeStatus(fee);
+return '<tr><td>' + fee.rollNumber + '</td><td>' + (student ? student.name : 'N/A') + '</td><td>' + (bus ? bus.number : 'N/A') + '</td><td>' + (student ? student.boardingPoint : 'N/A') + '</td><td>₹' + total + '</td><td>₹' + paid + '</td><td class="' + (due > 0 ? 'text-red-600' : 'text-green-600') + '">₹' + due + '</td><td><span class="badge ' + getFeeBadgeClass(status) + '">' + status + '</span></td><td><div class="flex gap-1"><button class="btn btn-success py-1 px-2 rounded text-white text-xs" title="Mark Paid" onclick="markAsPaid(\'' + fee.rollNumber + '\')"><i class="fas fa-check"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteFee(\'' + fee.rollNumber + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+            }).join('');
+        }
+
+        function getFeeStatus(fee) {
+            var total = fee.totalFee || 0;
+            var paid = fee.paid || 0;
+            if (paid >= total) return 'paid';
+            if (paid > 0) return 'pending';
+            return 'overdue';
+        }
+
+        function getFeeBadgeClass(status) {
+            if (status === 'paid') return 'badge-success';
+            if (status === 'pending') return 'badge-warning';
+            return 'badge-danger';
+        }
+
+        function filterFees() { updateFeeTable(); }
+
+        function updateFeeStats() {
+            var totalFee = 0, totalPaid = 0, paidCount = 0, pendingCount = 0, overdueCount = 0;
+            feesData.forEach(function(fee) {
+                totalFee += fee.totalFee || 0;
+                totalPaid += fee.paid || 0;
+                var status = getFeeStatus(fee);
+                if (status === 'paid') paidCount++;
+                else if (status === 'pending') pendingCount++;
+                else overdueCount++;
+            });
+            document.getElementById('total-fee-amount').textContent = '₹' + totalFee;
+            document.getElementById('total-collected').textContent = '₹' + totalPaid;
+            document.getElementById('total-due').textContent = '₹' + (totalFee - totalPaid);
+            var rate = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
+            document.getElementById('collection-rate').textContent = rate + '%';
+            document.getElementById('fee-collected').textContent = '₹' + totalPaid;
+            document.getElementById('pending-dues').textContent = feesData.length - paidCount;
+            document.getElementById('fee-paid-count').textContent = paidCount;
+            document.getElementById('fee-pending-count').textContent = pendingCount;
+            document.getElementById('fee-overdue-count').textContent = overdueCount;
+        }
+
+        function updateBusesTable() {
+            var tbody = document.getElementById('buses-tbody');
+            if (busesData.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">No buses</td></tr>'; return; }
+            tbody.innerHTML = busesData.map(function(bus) {
+                var count = studentsData.filter(function(s) { return s.busId == bus.id; }).length;
+                var hasLoc = bus.location && bus.location.lat;
+return '<tr><td class="font-medium">Bus ' + bus.id + '</td><td>' + (bus.number || 'N/A') + '</td><td>' + (bus.route || 'N/A') + '</td><td>' + (bus.driver || 'N/A') + '</td><td>' + (bus.contact || 'N/A') + '</td><td>' + count + '</td><td><span class="badge ' + (hasLoc ? 'badge-success' : 'badge-warning') + '">' + (hasLoc ? 'Active' : 'Inactive') + '</span></td><td><div class="flex gap-1"><button class="btn btn-action-edit py-1 px-2 rounded text-white text-xs" title="Edit" onclick="editBus(\'' + bus.id + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteBus(\'' + bus.id + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+            }).join('');
+            document.getElementById('total-buses').textContent = busesData.length;
+        }
+
+        function updateBusCards() {
+            var container = document.getElementById('bus-cards-container');
+            if (!container) return;
+            container.innerHTML = busesData.map(function(bus) {
+                var count = studentsData.filter(function(s) { return s.busId == bus.id; }).length;
+                var hasLoc = bus.location && bus.location.lat;
+                return '<div class="card"><div class="card-body"><div class="flex justify-between mb-3"><h3 class="font-semibold">' + (bus.number || 'Bus ' + bus.id) + '</h3><span class="badge ' + (hasLoc ? 'badge-success' : 'badge-warning') + '">' + (hasLoc ? 'Active' : 'Inactive') + '</span></div><p class="text-sm text-gray-600">' + (bus.route || '') + '</p><p class="text-sm mt-2"><i class="fas fa-user text-gray-400"></i> ' + (bus.driver || 'N/A') + ' | <i class="fas fa-users text-gray-400"></i> ' + count + '</p></div></div>';
+            }).join('');
+        }
+
+function updateBusDropdowns() {
+            updateBusFilters();
+            updateNotificationStudentDropdown();
+        }
+        
+        function updateNotificationStudentDropdown() {
+            var selOpts = '<option value="">Select Student</option>';
+            studentsData.forEach(function(s) {
+                selOpts += '<option value="' + s.rollNumber + '">' + (s.name || s.rollNumber) + ' (' + s.rollNumber + ')</option>';
+            });
+            document.getElementById('notification-student').innerHTML = selOpts;
+        }
+
+function sendNotification() {
+            var type = document.getElementById('notification-type').value;
+            var target = document.getElementById('notification-target').value;
+            var message = document.getElementById('notification-message').value.trim();
+            if (!message) { showToast('Enter message', 'error'); return; }
+            var data = { type: type, message: message, timestamp: Date.now(), targetType: target };
+            
+            if (target === 'all') {
+                // Save to main notifications for all
+                firebase.database().ref('notifications').push(data).then(function() {
+                    showToast('Notification sent to all!', 'success');
+                    document.getElementById('notification-message').value = '';
+                    loadNotifications();
+                }).catch(function() { showToast('Failed to send', 'error'); });
+            } else if (target === 'bus') {
+                var busId = document.getElementById('notification-bus').value;
+                data.busId = busId;
+                // Save to bus-specific notifications (students in that bus will receive it)
+                firebase.database().ref('busNotifications/bus' + busId).push(data).then(function() {
+                    showToast('Notification sent to Bus ' + busId + '!', 'success');
+                    document.getElementById('notification-message').value = '';
+                    loadNotifications();
+                }).catch(function() { showToast('Failed to send', 'error'); });
+            } else if (target === 'individual') {
+                var rollNumber = document.getElementById('notification-student').value;
+                data.rollNumber = rollNumber;
+                // Save to student-specific notifications
+                firebase.database().ref('studentNotifications/' + rollNumber).push(data).then(function() {
+                    showToast('Notification sent to ' + rollNumber + '!', 'success');
+                    document.getElementById('notification-message').value = '';
+                    loadNotifications();
+                }).catch(function() { showToast('Failed to send', 'error'); });
+            }
+        }
+
+        function openModal(type) {
+            document.getElementById(type + '-modal').classList.add('active');
+            if (type === 'student') {
+                document.getElementById('student-edit-roll').value = '';
+                document.getElementById('student-roll').value = '';
+                document.getElementById('student-name').value = '';
+                document.getElementById('student-bus').value = '';
+                document.getElementById('student-boarding').innerHTML = '<option value="">Select Stop</option>';
+                document.getElementById('student-fee').value = '';
+                document.getElementById('student-phone').value = '';
+                document.getElementById('student-parent-phone').value = '';
+                document.getElementById('student-modal-title').textContent = 'Add Student';
+            } else if (type === 'fee') {
+                document.getElementById('fee-edit-roll').value = '';
+                document.getElementById('fee-roll').value = '';
+                document.getElementById('fee-student-name').value = '';
+                document.getElementById('fee-bus-number').value = '';
+                document.getElementById('fee-boarding').value = '';
+                document.getElementById('fee-total').value = '';
+                document.getElementById('fee-paid').value = '0';
+                document.getElementById('fee-modal-title').textContent = 'Add Fee';
+            } else if (type === 'bus') {
+                document.getElementById('bus-edit-id').value = '';
+                document.getElementById('bus-id').value = '';
+                document.getElementById('bus-number').value = '';
+                document.getElementById('bus-route').value = '';
+                document.getElementById('bus-stops').value = '';
+                document.getElementById('bus-driver').value = '';
+                document.getElementById('bus-contact').value = '';
+                document.getElementById('bus-modal-title').textContent = 'Add Bus';
+            }
+        }
+
+        function closeModal(type) { document.getElementById(type + '-modal').classList.remove('active'); }
+
+        function saveStudent() {
+            var roll = document.getElementById('student-roll').value.trim();
+            var name = document.getElementById('student-name').value.trim();
+            var busId = document.getElementById('student-bus').value;
+            var boarding = document.getElementById('student-boarding').value;
+            var busFee = document.getElementById('student-fee').value.trim();
+            var phone = document.getElementById('student-phone').value.trim();
+            var parentPhone = document.getElementById('student-parent-phone').value.trim();
+            
+            if (!roll || !name || !busId || !boarding || !busFee) { showToast('Fill all required fields', 'error'); return; }
+            
+            var data = { 
+                name: name, 
+                busId: busId, 
+                boardingPoint: boarding, 
+                busFee: parseInt(busFee),
+                phone: phone, 
+                parentPhone: parentPhone, 
+                password: roll 
+            };
+            
+            firebase.database().ref('students/' + roll).set(data).then(function() {
+                showToast('Student added!', 'success');
+                closeModal('student');
+                loadStudents();
+            }).catch(function() { showToast('Error', 'error'); });
+        }
+
+        function editStudent(rollNumber) {
+            var student = studentsData.find(function(s) { return s.rollNumber === rollNumber; });
+            if (student) {
+                document.getElementById('student-edit-roll').value = rollNumber;
+                document.getElementById('student-roll').value = rollNumber;
+                document.getElementById('student-name').value = student.name || '';
+                document.getElementById('student-bus').value = student.busId || '';
+                // Update boarding points for selected bus first
+                setTimeout(function() {
+                    var boardingSelect = document.getElementById('student-boarding');
+                    boardingSelect.innerHTML = '<option value="">Select Stop</option>';
+                    if (student.busId && stopsData[student.busId]) {
+                        stopsData[student.busId].forEach(function(stop) {
+                            var selected = stop === student.boardingPoint ? ' selected' : '';
+                            boardingSelect.innerHTML += '<option value="' + stop + '"' + selected + '>' + stop + '</option>';
+                        });
+                    }
+                    document.getElementById('student-boarding').value = student.boardingPoint || '';
+                }, 100);
+                document.getElementById('student-fee').value = student.busFee || '';
+                document.getElementById('student-phone').value = student.phone || '';
+                document.getElementById('student-parent-phone').value = student.parentPhone || '';
+                document.getElementById('student-modal-title').textContent = 'Edit Student';
+                openModal('student');
+            }
+        }
+
+        function deleteStudent(rollNumber) {
+            if (confirm('Delete student?')) {
+                firebase.database().ref('students/' + rollNumber).remove().then(function() {
+                    showToast('Deleted!', 'success');
+                    loadStudents();
+                });
+            }
+        }
+
+        function openMoveModal(rollNumber) {
+            var student = studentsData.find(function(s) { return s.rollNumber === rollNumber; });
+            if (student) {
+                document.getElementById('move-student-roll').value = rollNumber;
+                document.getElementById('move-student-name').textContent = student.name || rollNumber;
+                var bus = busesData.find(function(b) { return b.id == student.busId; });
+                document.getElementById('move-current-bus').textContent = bus ? (bus.number || 'Bus ' + bus.id) : 'Not Assigned';
+                document.getElementById('move-modal').classList.add('active');
+            }
+        }
+
+        function confirmMoveStudent() {
+            var roll = document.getElementById('move-student-roll').value;
+            var newBus = document.getElementById('move-new-bus').value;
+            if (!newBus) { showToast('Select bus', 'error'); return; }
+            firebase.database().ref('students/' + roll).update({ busId: newBus }).then(function() {
+                showToast('Moved!', 'success');
+                closeModal('move');
+                loadStudents();
+            });
+        }
+
+        function saveFee() {
+            var roll = document.getElementById('fee-roll').value.trim();
+            var total = parseFloat(document.getElementById('fee-total').value) || 0;
+            var paid = parseFloat(document.getElementById('fee-paid').value) || 0;
+            if (!roll || total <= 0) { showToast('Invalid data', 'error'); return; }
+            var data = { totalFee: total, paid: paid, paymentMode: document.getElementById('fee-mode').value, lastUpdated: Date.now() };
+            firebase.database().ref('fees/' + roll).set(data).then(function() {
+                showToast('Fee saved!', 'success');
+                closeModal('fee');
+                loadFees();
+            });
+        }
+
+        function markAsPaid(rollNumber) {
+            var fee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
+            if (fee) {
+                firebase.database().ref('fees/' + rollNumber).update({ paid: fee.totalFee, lastUpdated: Date.now() }).then(function() {
+                    showToast('Marked as paid!', 'success');
+                    loadFees();
+                });
+            }
+        }
+
+        function deleteFee(rollNumber) {
+            if (confirm('Delete fee record?')) {
+                firebase.database().ref('fees/' + rollNumber).remove().then(function() {
+                    showToast('Deleted!', 'success');
+                    loadFees();
+                });
+            }
+        }
+
+        function saveBus() {
+            var id = document.getElementById('bus-id').value;
+            var number = document.getElementById('bus-number').value.trim();
+            var route = document.getElementById('bus-route').value.trim();
+            var stops = document.getElementById('bus-stops').value.trim();
+            var driver = document.getElementById('bus-driver').value.trim();
+            var contact = document.getElementById('bus-contact').value.trim();
+            if (!id || !number || !route || !stops || !driver || !contact) { showToast('Fill all required fields', 'error'); return; }
+            var data = { number: number, route: route, stops: stops, driver: driver, contact: contact };
+            firebase.database().ref('buses/' + id).set(data).then(function() {
+                showToast('Bus added!', 'success');
+                closeModal('bus');
+                loadBuses();
+            });
+        }
+
+        function editBus(busId) {
+            var bus = busesData.find(function(b) { return b.id == busId; });
+            if (bus) {
+                document.getElementById('bus-edit-id').value = busId;
+                document.getElementById('bus-id').value = busId;
+                document.getElementById('bus-number').value = bus.number || '';
+                document.getElementById('bus-route').value = bus.route || '';
+                document.getElementById('bus-stops').value = bus.stops || '';
+                document.getElementById('bus-driver').value = bus.driver || '';
+                document.getElementById('bus-contact').value = bus.contact || '';
+                document.getElementById('bus-modal-title').textContent = 'Edit Bus';
+                openModal('bus');
+            }
+        }
+
+        function deleteBus(busId) {
+            if (confirm('Delete bus?')) {
+                firebase.database().ref('buses/' + busId).remove().then(function() {
+                    showToast('Deleted!', 'success');
+                    loadBuses();
+                });
+            }
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+            var d = new Date(timestamp);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showToast(message, type) {
+            type = type || 'success';
+            var container = document.getElementById('toast-container');
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'times-circle') + '"></i><span>' + message + '</span>';
+            container.appendChild(toast);
+            setTimeout(function() { toast.classList.add('show'); }, 10);
+            setTimeout(function() { toast.classList.remove('show'); setTimeout(function() { toast.remove(); }, 300); }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -6,6 +6,8 @@
     <title>EASIWAY - Barcode Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Use html5-qrcode for better camera support -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=UberMove:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,7 +24,12 @@
         .uber-green { color: #06C167; }
         .uber-green-bg { background: #06C167; }
         
-        #scanner-video {
+        #reader {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #reader video {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -39,6 +46,7 @@
             border: 3px solid #06C167;
             border-radius: 12px;
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            z-index: 10;
         }
         
         .scan-line {
@@ -73,12 +81,18 @@
             <img src="https://files.catbox.moe/8vijkw.svg" alt="EASIWAY" class="h-8">
             <div>
                 <h1 class="font-semibold text-base">Barcode Scanner</h1>
-                <p class="text-xs text-gray-400" id="mode-label">Entry Mode</p>
+                <p class="text-xs text-gray-400" id="mode-label">Checking time...</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
             <span id="time-display" class="text-sm font-mono">--:--</span>
         </div>
+    </div>
+
+    <!-- Tcime Status Banner -->
+    <div id="time-status" class="p-2 text-center text-white font-semibold">
+        <i class="fas fa-clock mr-1"></i>
+        <span id="time-status-text">Checking college time...</span>
     </div>
 
     <!-- Mode Selection -->
@@ -112,28 +126,37 @@
         </select>
     </div>
 
-    <!-- Scanner -->
+    <!-- Scanner / Message Area -->
     <div class="flex-1 relative bg-black overflow-hidden">
-        <video id="scanner-video" autoplay playsinline muted></video>
-        
-        <!-- Scan Box -->
-        <div class="scan-region" id="scan-region">
-            <div class="scan-line"></div>
-            <div class="corner corner-tl"></div>
-            <div class="corner corner-tr"></div>
-            <div class="corner corner-bl"></div>
-            <div class="corner corner-br"></div>
+        <!-- Scanner region -->
+        <div id="scanner-container" class="hidden w-full h-full">
+            <div id="reader"></div>
+            <div class="scan-region">
+                <div class="scan-line"></div>
+                <div class="corner corner-tl"></div>
+                <div class="corner corner-tr"></div>
+                <div class="corner corner-bl"></div>
+                <div class="corner corner-br"></div>
+            </div>
         </div>
         
-        <p class="absolute bottom-20 left-0 right-0 text-center text-white text-sm bg-black/50 py-2">
-            Point camera at barcode on ID card
-        </p>
+        <!-- Message when not in college time -->
+        <div id="message-area" class="absolute inset-0 flex flex-col items-center justify-center bg-black text-white p-6 text-center">
+            <i class="fas fa-clock text-6xl text-red-500 mb-4"></i>
+            <h2 class="text-2xl font-bold mb-2">Not College Time</h2>
+            <p id="message-text" class="text-gray-400 mb-4">The scanner is only available during college hours</p>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <p class="text-sm"><span class="text-teal-400">Entry:</span> 7:00 AM - 9:30 AM</p>
+                <p class="text-sm"><span class="text-teal-400">Exit:</span> 4:30 PM - 7:00 PM</p>
+            </div>
+            <p class="mt-4 text-yellow-400 text-sm" id="next-available"></p>
+        </div>
         
         <!-- Status -->
         <div class="absolute bottom-0 left-0 right-0 bg-black/80 text-white p-2 flex justify-between items-center">
             <div class="flex items-center gap-2">
-                <div id="status-dot" class="w-2 h-2 rounded-full bg-green-500"></div>
-                <span id="status-text" class="text-xs">Ready</span>
+                <div id="status-dot" class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                <span id="status-text" class="text-xs">Checking...</span>
             </div>
             <div>
                 <span id="scanned-count" class="text-base font-bold uber-green">0</span>
@@ -144,7 +167,7 @@
 
     <!-- Result Modal -->
     <div id="result-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-end justify-center">
-        <div class="bg-white w-full rounded-t-2xl p-4 animate-slide-up">
+        <div class="bg-white w-full rounded-t-2xl p-4">
             <div id="success-content" class="hidden">
                 <div class="flex items-center gap-3 mb-3">
                     <div class="w-12 h-12 rounded-full uber-green-bg flex items-center justify-center">
@@ -193,44 +216,109 @@
 
         // Time windows (in minutes from midnight)
         const TIME_WINDOWS = {
-            entry: { start: 7 * 60, end: 9.5 * 60 },
-            exit: { start: 16.5 * 60, end: 19 * 60 }
+            entry: { start: 7 * 60, end: 9.5 * 60 },      // 7:00 AM - 9:30 AM
+            exit: { start: 16.5 * 60, end: 19 * 60 }      // 4:30 PM - 7:00 PM
         };
 
         // State
         let currentMode = 'entry';
         let currentBusId = null;
         let scannedCodes = new Set();
-        let videoStream = null;
-        let detector = null;
-        let isScanning = false;
+        let isInCollegeTime = false;
+        let html5QrCode = null;
 
         // DOM elements
-        const video = document.getElementById('scanner-video');
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
         const scannedCount = document.getElementById('scanned-count');
+        const messageArea = document.getElementById('message-area');
+        const scannerContainer = document.getElementById('scanner-container');
+        const timeStatus = document.getElementById('time-status');
+        const timeStatusText = document.getElementById('time-status-text');
+        const nextAvailable = document.getElementById('next-available');
 
         // Initialize
-        async function init() {
+        function init() {
             updateTime();
             setInterval(updateTime, 1000);
             updateModeUI();
-            await startCamera();
         }
 
-        // Update time
+        // Update time and check college hours
         function updateTime() {
             const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const totalMins = hours * 60 + minutes;
+            
+            // Update time display
             document.getElementById('time-display').textContent = 
                 now.toLocaleTimeString('en-GB', { hour12: false });
             
-            const mins = now.getHours() * 60 + now.getMinutes();
-            if (mins >= TIME_WINDOWS.entry.start && mins <= TIME_WINDOWS.entry.end && currentMode !== 'entry') {
+            // Check if in college time
+            const inEntryTime = totalMins >= TIME_WINDOWS.entry.start && totalMins <= TIME_WINDOWS.entry.end;
+            const inExitTime = totalMins >= TIME_WINDOWS.exit.start && totalMins <= TIME_WINDOWS.exit.end;
+            
+            isInCollegeTime = inEntryTime || inExitTime;
+            
+            // Update mode based on time
+            if (inEntryTime && currentMode !== 'entry') {
                 setMode('entry');
-            } else if (mins >= TIME_WINDOWS.exit.start && mins <= TIME_WINDOWS.exit.end && currentMode !== 'exit') {
+            } else if (inExitTime && currentMode !== 'exit') {
                 setMode('exit');
+            } else if (!inEntryTime && !inExitTime) {
+                // Not in college time
+                currentMode = null;
             }
+            
+            updateTimeStatusUI();
+        }
+
+        // Update time status UI
+        function updateTimeStatusUI() {
+            const now = new Date();
+            const totalMins = now.getHours() * 60 + now.getMinutes();
+            
+            if (totalMins >= TIME_WINDOWS.entry.start && totalMins <= TIME_WINDOWS.entry.end) {
+                // Entry time
+                timeStatus.className = 'p-2 text-center text-white font-semibold uber-green-bg';
+                timeStatusText.textContent = '✓ Entry Time Active (7:00-9:30 AM)';
+                messageArea.classList.add('hidden');
+                scannerContainer.classList.remove('hidden');
+                tryStartScanner();
+            } else if (totalMins >= TIME_WINDOWS.exit.start && totalMins <= TIME_WINDOWS.exit.end) {
+                // Exit time
+                timeStatus.className = 'p-2 text-center text-white font-semibold bg-purple-600';
+                timeStatusText.textContent = '✓ Exit Time Active (4:30-7:00 PM)';
+                messageArea.classList.add('hidden');
+                scannerContainer.classList.remove('hidden');
+                tryStartScanner();
+            } else {
+                // Not in college time
+                timeStatus.className = 'p-2 text-center text-white font-semibold bg-red-600';
+                timeStatusText.textContent = '✗ Not College Time';
+                
+                messageArea.classList.remove('hidden');
+                scannerContainer.classList.add('hidden');
+                stopScanner();
+                
+                // Show when next available
+                if (totalMins < TIME_WINDOWS.entry.start) {
+                    const minsUntilEntry = TIME_WINDOWS.entry.start - totalMins;
+                    const hrs = Math.floor(minsUntilEntry / 60);
+                    const mins = minsUntilEntry % 60;
+                    nextAvailable.textContent = `Next entry: ${hrs}h ${mins}m`;
+                } else if (totalMins > TIME_WINDOWS.entry.end && totalMins < TIME_WINDOWS.exit.start) {
+                    const minsUntilExit = TIME_WINDOWS.exit.start - totalMins;
+                    const hrs = Math.floor(minsUntilExit / 60);
+                    const mins = minsUntilExit % 60;
+                    nextAvailable.textContent = `Next exit: ${hrs}h ${mins}m`;
+                } else {
+                    nextAvailable.textContent = 'Try again tomorrow';
+                }
+            }
+            
+            updateModeUI();
         }
 
         // Set mode
@@ -247,13 +335,20 @@
             const exitBtn = document.getElementById('exit-mode');
             const label = document.getElementById('mode-label');
             
+            if (!isInCollegeTime) {
+                label.textContent = 'Not college hours';
+                entryBtn.className = 'flex-1 bg-gray-300 text-gray-500 py-2 rounded-lg font-semibold text-base cursor-not-allowed';
+                exitBtn.className = 'flex-1 bg-gray-300 text-gray-500 py-2 rounded-lg font-semibold text-base cursor-not-allowed';
+                return;
+            }
+            
             if (currentMode === 'entry') {
                 entryBtn.className = 'flex-1 uber-green-bg text-white py-2 rounded-lg font-semibold text-base';
-                exitBtn.className = 'flex-1 bg-gray-300 text-gray-600 py-2 rounded-lg font-semibold text-base';
-                label.textContent = 'Entry (7:00-9:30 AM)';
-            } else {
-                entryBtn.className = 'flex-1 bg-gray-300 text-gray-600 py-2 rounded-lg font-semibold text-base';
                 exitBtn.className = 'flex-1 bg-black text-white py-2 rounded-lg font-semibold text-base';
+                label.textContent = 'Entry (7:00-9:30 AM)';
+            } else if (currentMode === 'exit') {
+                entryBtn.className = 'flex-1 bg-black text-white py-2 rounded-lg font-semibold text-base';
+                exitBtn.className = 'flex-1 uber-green-bg text-white py-2 rounded-lg font-semibold text-base';
                 label.textContent = 'Exit (4:30-7:00 PM)';
             }
         }
@@ -261,91 +356,93 @@
         // Bus select
         document.getElementById('bus-select').addEventListener('change', (e) => {
             currentBusId = e.target.value;
+            tryStartScanner();
         });
 
         // Mode buttons
-        document.getElementById('entry-mode').addEventListener('click', () => setMode('entry'));
-        document.getElementById('exit-mode').addEventListener('click', () => setMode('exit'));
+        document.getElementById('entry-mode').addEventListener('click', () => {
+            if (isInCollegeTime) {
+                setMode('entry');
+                tryStartScanner();
+            }
+        });
+        document.getElementById('exit-mode').addEventListener('click', () => {
+            if (isInCollegeTime) {
+                setMode('exit');
+                tryStartScanner();
+            }
+        });
 
-        // Start camera - only after bus is selected
-        async function startCamera() {
-            // Don't start until bus is selected
-            statusText.textContent = 'Select bus to start';
-            statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500';
+        // Try to start scanner (only if in college time and bus selected)
+        function tryStartScanner() {
+            if (!isInCollegeTime) {
+                statusText.textContent = 'Not college time';
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+                return;
+            }
             
-            // Wait for bus selection
-            const checkBus = setInterval(() => {
-                if (currentBusId) {
-                    clearInterval(checkBus);
-                    initCamera();
-                }
-            }, 500);
+            if (!currentBusId) {
+                statusText.textContent = 'Select bus first';
+                statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500';
+                return;
+            }
+            
+            // Start scanner
+            startScanner();
         }
-        
-        async function initCamera() {
-            try {
-                statusText.textContent = 'Starting camera...';
-                
-                videoStream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
-                
-                video.srcObject = videoStream;
-                await video.play();
-                
+
+        // Start scanner using html5-qrcode
+        function startScanner() {
+            if (html5QrCode) {
+                return; // Already running
+            }
+            
+            statusText.textContent = 'Starting camera...';
+            statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+            
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 150 },
+                aspectRatio: 1.0
+            };
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                onScanFailure
+            ).then(() => {
                 statusDot.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
                 statusText.textContent = 'Scanning...';
-                
-                // Try native BarcodeDetector first
-                if ('BarcodeDetector' in window) {
-                    detector = new BarcodeDetector({
-                        formats: ['code_128', 'code_39', 'ean_13', 'ean_8']
-                    });
-                    startNativeScan();
-                } else {
-                    // Fallback: just process continuously
-                    startScanning();
-                }
-                
-            } catch (err) {
-                console.error('Camera error:', err);
+            }).catch(err => {
                 statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
                 statusText.textContent = 'Camera error: ' + err.message;
+            });
+        }
+
+        // Stop scanner
+        function stopScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode = null;
+                }).catch(err => {
+                    console.error('Error stopping scanner:', err);
+                    html5QrCode = null;
+                });
             }
         }
 
-        // Native barcode detection
-        async function startNativeScan() {
-            if (!detector) return;
-            
-            isScanning = true;
-            
-            while (isScanning && video.srcObject) {
-                try {
-                    const barcodes = await detector.detect(video);
-                    
-                    if (barcodes.length > 0) {
-                        const code = barcodes[0].rawValue.trim();
-                        if (code && code.length >= 3) {
-                            handleDetectedCode(code);
-                        }
-                    }
-                } catch (e) {
-                    // Ignore detection errors
-                }
-                
-                await new Promise(r => setTimeout(r, 200));
-            }
+        // Scan success
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log('Scanned:', decodedText);
+            handleDetectedCode(decodedText);
         }
 
-        // Fallback scanning (simpler detection)
-        function startScanning() {
-            isScanning = true;
-            statusText.textContent = 'Ready - scan barcode';
+        // Scan failure
+        function onScanFailure(error) {
+            // Ignore errors during scanning
         }
 
         // Handle detected code
@@ -358,7 +455,7 @@
                 return;
             }
             
-            // Validate time
+            // Validate time (double check)
             const now = new Date();
             const mins = now.getHours() * 60 + now.getMinutes();
             const window = TIME_WINDOWS[currentMode];
@@ -396,6 +493,9 @@
             document.getElementById('success-content').classList.remove('hidden');
             document.getElementById('error-content').classList.add('hidden');
             document.getElementById('result-modal').classList.remove('hidden');
+            
+            // Stop scanning temporarily
+            stopScanner();
             
             // Save to Firebase
             try {
@@ -436,6 +536,10 @@
         // Close result
         function closeResult() {
             document.getElementById('result-modal').classList.add('hidden');
+            // Restart scanner
+            if (isInCollegeTime && currentBusId) {
+                tryStartScanner();
+            }
         }
 
         // Play beep

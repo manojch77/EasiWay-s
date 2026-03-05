@@ -1,0 +1,12 @@
+{
+  "admin": {
+    "229": {
+      "name": "Admin",
+      "password": "299#",
+      "role": "super_admin",
+      "email": "admin@easiway.com"
+    }
+  },
+  "description": "Admin login credentials for EASIWAY Bus Management System",
+  "usage": "Use roll number 229 and password 299# to login to admin dashboard"
+}

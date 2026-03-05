@@ -7,18 +7,18 @@ from firebase_admin import credentials, db
 app = Flask(__name__)
 CORS(app)
 
-# ✅ Firebase init
+# Firebase init
 cred = credentials.Certificate("serviceAccountKey.json")
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred, {
         'databaseURL': 'https://easy-22b8-default-rtdb.firebaseio.com/'
     })
 
-# ---------------- GPS ROUTE (UNCHANGED) ---------------- #
+
 
 @app.route('/', methods=['GET'])
 def index():
-    return "✅ Flask middleware running", 200
+    return "Flask middleware running", 200
 
 
 @app.route('/', methods=['POST'])
@@ -47,7 +47,6 @@ def receive_data():
     return "Missing id, lat, or lon", 400
 
 
-# ---------------- QR ATTENDANCE ROUTE ---------------- #
 
 ENTRY_START = time(7, 0)
 ENTRY_END = time(9, 30)
@@ -70,7 +69,6 @@ def scan_attendance():
 
     now = datetime.now().time()
 
-    # ---- Time validation ----
     if qr_type == "entry":
         if not (ENTRY_START <= now <= ENTRY_END):
             return jsonify({
@@ -85,13 +83,11 @@ def scan_attendance():
                 "msg":"Exit allowed only 4:30–7:00 PM"
             }),403
 
-    # ---- Token validation ----
     token_data = db.reference(f"busTokens/bus{bus_id}/{qr_type}").get()
 
     if not token_data or token_data.get("token") != token:
         return jsonify({"status":"error","msg":"Invalid or expired QR"}),403
 
-    # ---- Prevent duplicate ----
     ref = db.reference(f"attendance/bus{bus_id}/{roll}")
     existing = ref.get() or {}
 
@@ -101,12 +97,11 @@ def scan_attendance():
     if qr_type == "exit" and existing.get("exitTime"):
         return jsonify({"status":"error","msg":"Exit already marked"}),403
 
-    # ---- Save attendance ----
     ref.update({
         f"{qr_type}Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
 
-    print(f"✅ {roll} {qr_type} attendance saved")
+    print(f"{roll} {qr_type} attendance saved")
 
     return jsonify({
         "status":"success",

@@ -1,0 +1,32 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "students": {
+      "$roll": {
+        ".validate": "newData.hasChildren(['name', 'busId', 'boardingPoint', 'busFee'])"
+      }
+    },
+    "fees": {
+      "$roll": {
+        ".validate": "newData.hasChildren(['totalFee', 'paid'])"
+      }
+    },
+    "buses": {
+      "$busId": {
+        ".validate": "newData.hasChildren(['number', 'route', 'stops', 'driver', 'contact'])"
+      }
+    },
+    "notifications": {
+      "$notifId": {
+        ".validate": "newData.hasChildren(['message', 'timestamp', 'targetType'])"
+      }
+    },
+    "admins": {
+      "$roll": {
+        ".write": "auth != null && auth.uid == 'admin'",
+        ".read": "auth != null"
+      }
+    }
+  }
+}
