@@ -1,32 +1,85 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true,
+    "admin": {
+      ".read": true,
+      ".write": true
+    },
     "students": {
       "$roll": {
-        ".validate": "newData.hasChildren(['name', 'busId', 'boardingPoint', 'busFee'])"
-      }
-    },
-    "fees": {
-      "$roll": {
-        ".validate": "newData.hasChildren(['totalFee', 'paid'])"
+        ".read": "auth != null && auth.uid == $roll",
+        ".write": "auth != null && auth.uid == $roll"
       }
     },
     "buses": {
+      ".read": true,
+      ".write": "root.child('admin').child(auth.uid).exists() || root.child('drivers').child(auth.uid).exists()",
       "$busId": {
-        ".validate": "newData.hasChildren(['number', 'route', 'stops', 'driver', 'contact'])"
+        ".write": "root.child('admin').child(auth.uid).exists() || root.child('drivers').child(auth.uid).exists()"
       }
     },
-    "notifications": {
-      "$notifId": {
-        ".validate": "newData.hasChildren(['message', 'timestamp', 'targetType'])"
-      }
+    "devices": {
+      ".read": "root.child('admin').child(auth.uid).exists()",
+      ".write": "root.child('drivers').child(auth.uid).exists()"
     },
-    "admins": {
+    "positions": {
+      ".read": "root.child('admin').child(auth.uid).exists() || root.child('students').child(auth.uid).exists()",
+      ".write": "root.child('drivers').child(auth.uid).exists()"
+    },
+    "fees": {
       "$roll": {
-        ".write": "auth != null && auth.uid == 'admin'",
-        ".read": "auth != null"
+        ".read": "auth != null && auth.uid == $roll",
+        ".write": "root.child('admin').child(auth.uid).exists()"
       }
-    }
+    },
+    "attendance": {
+      "$roll": {
+        ".read": "auth != null && auth.uid == $roll",
+        ".write": "auth != null"
+      }
+    },
+    "busTokens": {
+      ".read": "auth != null",
+      "$busId": {
+        ".write": "root.child('drivers').child(auth.uid).exists()"
+      }
+    },
+    "studentNotifications": {
+      "$roll": {
+        ".read": "auth != null && auth.uid == $roll",
+        ".write": "root.child('admin').child(auth.uid).exists()"
+      }
+    },
+    "busNotifications": {
+      "$busId": {
+        ".read": "auth != null",
+        ".write": "root.child('admin').child(auth.uid).exists()"
+      }
+    },
+    "driverCalls": {
+      "$busId": {
+        ".read": "root.child('admin').child(auth.uid).exists() || root.child('drivers').child(auth.uid).exists()",
+        ".write": "auth != null"
+      }
+    },
+    "alerts": {
+      "$busId": {
+        ".read": "root.child('admin').child(auth.uid).exists() || root.child('drivers').child(auth.uid).exists()",
+        ".write": "auth != null"
+      }
+    },
+    "studentLocations": {
+      "$busId": {
+        ".read": "root.child('admin').child(auth.uid).exists() || root.child('drivers').child(auth.uid).exists()",
+        ".write": "auth != null"
+      }
+    },
+    "busAttendance": {
+      "$busId": {
+        ".read": "root.child('admin').child(auth.uid).exists() || root.child('drivers').child(auth.uid).exists()",
+        ".write": "auth != null"
+      }
+    },
+    ".read": false,
+    ".write": false
   }
 }

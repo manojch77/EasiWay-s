@@ -36,22 +36,13 @@
   });
 </script>
 <script>
-     // Main Firebase config for students, fees, notifications (same as admin)
+     // Use single Firebase config for everything (easy-22b8)
      const firebaseConfig = {
-     apiKey: "AIzaSyBGoVKtWRDYDvaim2s3HgI_H9H9KoINNZg",
-     projectId: "easiway-1b022",
-     databaseURL: "https://easiway-1b022-default-rtdb.firebaseio.com"
-     };
-     firebase.initializeApp(firebaseConfig);
-     
-     // Secondary Firebase config for live tracking only (same as admin)
-     const trackingConfig = {
      apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg",
      projectId: "easy-22b8",
      databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com"
      };
-     // Create separate app for tracking
-     const trackingApp = firebase.initializeApp(trackingConfig, 'tracking');
+     firebase.initializeApp(firebaseConfig);
     </script>
     <script src="Bus.js"></script>
     <style>

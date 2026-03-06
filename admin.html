@@ -12,21 +12,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-compat.js"></script>
     <script>
-        // Main Firebase config (for students, fees, buses, notifications)
+        // Use single Firebase config for everything (easy-22b8)
         const firebaseConfig = {
-            apiKey: "AIzaSyBGoVKtWRDYDvaim2s3HgI_H9H9KoINNZg",
-            authDomain: "easiway-1b022.firebaseapp.com",
-            databaseURL: "https://easiway-1b022-default-rtdb.firebaseio.com",
-            projectId: "easiway-1b022",
-            storageBucket: "easiway-1b022.firebasestorage.app",
-            messagingSenderId: "357042949491",
-            appId: "1:357042949491:web:91590e787a5d742307c906",
-            measurementId: "G-5H78VJJLPN"
-        };
-        firebase.initializeApp(firebaseConfig);
-
-        // Secondary Firebase config for live tracking only
-        const trackingConfig = {
             apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg",
             authDomain: "easy-22b8.firebaseapp.com",
             databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com",
@@ -36,8 +23,7 @@
             appId: "1:1026420258090:web:2e12ce0f0330b8109d5a53",
             measurementId: "G-PFXRFV09Y8"
         };
-        // Create separate app for tracking
-        const trackingApp = firebase.initializeApp(trackingConfig, 'tracking');
+        firebase.initializeApp(firebaseConfig);
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -575,8 +561,8 @@ function loadStudents() {
         }
 
         function loadBusLocationsForMap() {
-            // Use tracking Firebase app for live locations on dashboard map
-            firebase.database(trackingApp).ref('buses').once('value', function(snapshot) {
+            // Use Firebase for live locations on dashboard map
+            firebase.database().ref('buses').once('value', function(snapshot) {
                 if (snapshot.exists()) {
                     snapshot.forEach(function(child) {
                         var busData = child.val();
@@ -590,7 +576,7 @@ function loadStudents() {
             });
             
             // Listen for real-time updates on dashboard map
-            firebase.database(trackingApp).ref('buses').on('child_changed', function(snapshot) {
+            firebase.database().ref('buses').on('child_changed', function(snapshot) {
                 var busData = snapshot.val();
                 if (busData.location && busData.location.lat) {
                     addBusMarkerToMap(snapshot.key, busData);
@@ -600,8 +586,8 @@ function loadStudents() {
         }
 
         function loadBusLocationsForTracking() {
-            // Use tracking Firebase app for live locations
-            firebase.database(trackingApp).ref('buses').once('value', function(snapshot) {
+            // Use Firebase for live locations
+            firebase.database().ref('buses').once('value', function(snapshot) {
                 if (snapshot.exists()) {
                     snapshot.forEach(function(child) {
                         var busData = child.val();
@@ -613,7 +599,7 @@ function loadStudents() {
             });
             
             // Listen for real-time updates
-            firebase.database(trackingApp).ref('buses').on('child_changed', function(snapshot) {
+            firebase.database().ref('buses').on('child_changed', function(snapshot) {
                 var busData = snapshot.val();
                 addBusMarkerToTracking(snapshot.key, busData);
                 // Update busesData with location for status
@@ -621,7 +607,7 @@ function loadStudents() {
             });
             
             // Also listen for new buses being added
-            firebase.database(trackingApp).ref('buses').on('child_added', function(snapshot) {
+            firebase.database().ref('buses').on('child_added', function(snapshot) {
                 var busData = snapshot.val();
                 addBusMarkerToTracking(snapshot.key, busData);
                 updateBusLocationInData(snapshot.key, busData);
@@ -808,7 +794,8 @@ return '<tr><td>' + fee.rollNumber + '</td><td>' + (student ? student.name : 'N/
             tbody.innerHTML = busesData.map(function(bus) {
                 var count = studentsData.filter(function(s) { return s.busId == bus.id; }).length;
                 var hasLoc = bus.location && bus.location.lat;
-return '<tr><td class="font-medium">Bus ' + bus.id + '</td><td>' + (bus.number || 'N/A') + '</td><td>' + (bus.route || 'N/A') + '</td><td>' + (bus.driver || 'N/A') + '</td><td>' + (bus.contact || 'N/A') + '</td><td>' + count + '</td><td><span class="badge ' + (hasLoc ? 'badge-success' : 'badge-warning') + '">' + (hasLoc ? 'Active' : 'Inactive') + '</span></td><td><div class="flex gap-1"><button class="btn btn-action-edit py-1 px-2 rounded text-white text-xs" title="Edit" onclick="editBus(\'' + bus.id + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteBus(\'' + bus.id + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+                // Fix: Show bus ID as number and vehicle number properly
+                return '<tr><td class="font-medium">' + bus.id + '</td><td>' + (bus.number || 'N/A') + '</td><td>' + (bus.route || 'N/A') + '</td><td>' + (bus.driver || 'N/A') + '</td><td>' + (bus.contact || 'N/A') + '</td><td>' + count + '</td><td><span class="badge ' + (hasLoc ? 'badge-success' : 'badge-warning') + '">' + (hasLoc ? 'Active' : 'Inactive') + '</span></td><td><div class="flex gap-1"><button class="btn btn-action-edit py-1 px-2 rounded text-white text-xs" title="Edit" onclick="editBus(\'' + bus.id + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteBus(\'' + bus.id + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
             }).join('');
             document.getElementById('total-buses').textContent = busesData.length;
         }
@@ -998,29 +985,35 @@ function sendNotification() {
             var paid = parseFloat(document.getElementById('fee-paid').value) || 0;
             if (!roll || total <= 0) { showToast('Invalid data', 'error'); return; }
             var data = { totalFee: total, paid: paid, paymentMode: document.getElementById('fee-mode').value, lastUpdated: Date.now() };
+            
+            // Save to Firebase (single easy-22b8 for all)
             firebase.database().ref('fees/' + roll).set(data).then(function() {
-                showToast('Fee saved!', 'success');
+                showToast('Fee saved! Students will see it in real-time.', 'success');
                 closeModal('fee');
                 loadFees();
-            });
+            }).catch(function() { showToast('Error saving fee', 'error'); });
         }
 
         function markAsPaid(rollNumber) {
             var fee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
             if (fee) {
-                firebase.database().ref('fees/' + rollNumber).update({ paid: fee.totalFee, lastUpdated: Date.now() }).then(function() {
-                    showToast('Marked as paid!', 'success');
+                var updateData = { paid: fee.totalFee, lastUpdated: Date.now() };
+                
+                // Update in Firebase (single easy-22b8 for all)
+                firebase.database().ref('fees/' + rollNumber).update(updateData).then(function() {
+                    showToast('Marked as paid! Students will see it.', 'success');
                     loadFees();
-                });
+                }).catch(function() { showToast('Error updating fee', 'error'); });
             }
         }
 
         function deleteFee(rollNumber) {
             if (confirm('Delete fee record?')) {
+                // Delete from Firebase (single easy-22b8 for all)
                 firebase.database().ref('fees/' + rollNumber).remove().then(function() {
                     showToast('Deleted!', 'success');
                     loadFees();
-                });
+                }).catch(function() { showToast('Error deleting fee', 'error'); });
             }
         }
 

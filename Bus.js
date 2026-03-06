@@ -79,7 +79,3 @@ function updateLastUpdatedTime() {
     const lastUpdated = document.getElementById("last-updated");
     if (lastUpdated) lastUpdated.textContent = `${hours}:${minutes}`;
 }
-
-
-
-   
