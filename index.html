@@ -732,16 +732,56 @@
 
         return R * c;
     }
+        // Real-time bus location from Firebase
+        function loadBusRealTimeLocation() {
+            if (!userBus) return;
+            var busId = userBus.id;
+            
+            firebase.database().ref('buses/' + busId).once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    var busData = snapshot.val();
+                    var lat = null;
+                    var lng = null;
+                    
+                    // Format from app.py: buses/{id}/location = {lat, lng}
+                    if (busData.location && busData.location.lat) {
+                        lat = busData.location.lat;
+                        lng = busData.location.lng;
+                    }
+                    // Format from index.html: currentLocation = {lat, lng}
+                    else if (busData.currentLocation && busData.currentLocation.lat) {
+                        lat = busData.currentLocation.lat;
+                        lng = busData.currentLocation.lng;
+                    }
+                    
+                    if (lat && lng) {
+                        userBus.currentLocation = { lat: lat, lng: lng };
+                        updateBusMarker();
+                    }
+                }
+            });
+            
+            // Listen for real-time updates
+            firebase.database().ref('buses/' + busId).on('child_changed', function(snapshot) {
+                if (snapshot.key === 'location') {
+                    var loc = snapshot.val();
+                    if (loc && loc.lat) {
+                        userBus.currentLocation = { lat: loc.lat, lng: loc.lng };
+                        updateBusMarker();
+                    }
+                }
+            });
+        }
+
         function updateBusMarker() {
             if (!userBus || !userBus.currentLocation) return;
 
-            const { lat, lng } = userBus.currentLocation;
+            const lat = userBus.currentLocation.lat;
+            const lng = userBus.currentLocation.lng;
 
             if (busMarker) {
-                // Just move existing marker
                 busMarker.setLatLng([lat, lng]);
             } else {
-                // Create marker only once
                 busMarker = L.marker([lat, lng], {
                     icon: L.divIcon({
                         className: 'bus-marker',
@@ -764,19 +804,17 @@
                          busEta.textContent = realTimeETA;
                 }
             }
-            // Popup and center
             busMarker.bindPopup(`
                 <div class="space-y-1">
                     <h3 class="font-bold text-lg">${userBus.number}</h3>
                     <p class="text-sm">${userBus.route}</p>
                     <p class="text-sm"><span class="font-medium">Driver:</span> ${userBus.driver}</p>
                     <p class="text-sm"><span class="font-medium">Status:</span> ${userBus.status}</p>
-                    <p class="text-sm"><span class="font-medium">ETA:</span> <span id="bus-eta">Calculating...</span></p>
+                       <p class="text-sm"><span class="font-medium">ETA:</span> <span id="bus-eta">Calculating...</span></p>
                     <p class="text-sm"><span class="font-medium">Stop:</span> ${userBus.currentStop}</p>
                 </div>
             `);
 
-            // Only set view if it's the initial load
             if (!busMarker._map) {
                 map.setView([lat + 0.01, lng], 13);
             }
@@ -977,6 +1015,7 @@
 
                         initMap();
                         updateLastUpdatedTime();
+                        loadBusRealTimeLocation();
                         addNotification(`You are assigned to ${userBus.route}`, 'info', 'just now');
                         addNotification(`Bus ${userBus.number} is currently ${userBus.status}`, userBus.status === 'delayed' ? 'warning' : 'info', 'just now');
                         
@@ -1218,6 +1257,9 @@
             // Scan failure is expected - just ignore
         }
 
+        // Flask backend URL - deployed backend
+        const FLASK_API_URL = 'https://easiway-backend.onrender.com';
+
         async function processQRCode(qrData) {
             try {
                 console.log("QR Scanned:", qrData);
@@ -1242,10 +1284,7 @@
                     return;
                 }
 
-                // QR type is auto-detected from the scanned QR code
-                // No need to check selectedScanType since we now auto-detect from QR
-
-                // Validate token with Firebase - check the correct path (entry or exit)
+                // Validate token with Firebase first
                 const tokenRef = firebase.database().ref(`busTokens/bus${busId}/${qrType}`);
                 const snapshot = await tokenRef.once('value');
                 
@@ -1268,26 +1307,35 @@
                     return;
                 }
 
-                // Mark attendance in Firebase
-                const attendanceRef = firebase.database().ref(`attendance/${currentUser.rollnumber}`);
-                const attendanceData = {
-                    busId: busId,
-                    rollnumber: currentUser.rollnumber,
-                    type: qrType,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP,
-                    token: token,
-                    scannedAt: new Date().toISOString()
-                };
+                // Call Flask backend for attendance (validates time restrictions)
+                const response = await fetch(`${FLASK_API_URL}/scan-attendance`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        roll: currentUser.rollnumber,
+                        busId: busId,
+                        token: token,
+                        type: qrType
+                    })
+                });
 
-                await attendanceRef.push(attendanceData);
+                const result = await response.json();
 
-                // Update token to mark it as used by this student
+                if (!response.ok) {
+                    showScanError(result.msg || "Failed to mark attendance");
+                    return;
+                }
+
+                // Mark token as used
                 await tokenRef.child('usedBy').child(currentUser.rollnumber).set(true);
 
-// Show success
+                // Show success
                 const now = new Date();
                 const timeStr = now.toLocaleTimeString();
                 const typeLabel = qrType === 'entry' ? 'Entry' : 'Exit';
+                
                 showScanSuccess(`${typeLabel} attendance marked for Bus ${busId} at ${timeStr}`);
                 
                 // Send parent notification
